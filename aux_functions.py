@@ -13,7 +13,7 @@ import seaborn as sns
 import pandas as pd
 from sklearn.decomposition import PCA
 import os
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from scipy import stats 
 
 def getdata(user, dataset):
@@ -178,37 +178,50 @@ def emg_process(size_val, stride_val, user, dataset):
     # low pass and features -> 
 
     for i in range(num_channelsEMG):
-        
-        
+
+        feature_counter = 0
+    
         emg_window = slidingWindowEMG(emg_temp[:, i], size, stride)
 
         if WL_bool: 
             emg_window_WL = WL(emg_window, size, stride) 
             emg_windows.append(emg_window_WL)
+            feature_counter += 1
+            
 
         if LV_bool:
             emg_window_LV = LV(emg_window, size)
             emg_windows.append(emg_window_LV)
+            feature_counter += 1
 
 
-        emg_windows_stacked = np.array(emg_windows)
-        emg_windows_stacked = np.transpose(emg_windows_stacked)
 
-        scaler = StandardScaler()
-        emg_windows_stacked = scaler.fit_transform(emg_windows_stacked)
+    emg_windows_stacked = np.array(emg_windows)
+    emg_windows_stacked = emg_windows_stacked.T
+    # emg_windows_stacked = np.transpose(emg_windows_stacked)
 
-        directory = f'./processed_data/emg/dataset{dataset}'
+    # get into expected sklearn input X.shape should be [number_of_samples, number_of_features] for scaling
 
-        ensure_directory_exists(directory)
+    # check the shape is correct:
+    n_features = feature_counter * num_channelsEMG
+
+    if not emg_windows_stacked.shape[1] == n_features:
+        raise ValueError("Shape of EMG not correct for sklearn standardisation")
+
+    scaler = StandardScaler()
+    emg_windows_stacked = scaler.fit_transform(emg_windows_stacked)
+
+    directory = f'./processed_data/emg/dataset{dataset}'
+
+    ensure_directory_exists(directory)
+
+    emg_data_processed = emg_windows_stacked
 
 
-        emg_data_ID = f"{user}_{dataset}"
+    emg_data_ID = f"{user}_{dataset}"
+    np.save(f"{directory}/emg_{emg_data_ID}.npy", emg_data_processed)
 
-        
-        np.save(f"{directory}/emg_{emg_data_ID}.npy", emg_windows_stacked)
-
-
-    return emg_data_ID
+    return emg_data_processed
 
 
 
@@ -282,7 +295,8 @@ def glove_process(size_val, stride_val, user, dataset):
     if not glove_mapped.shape[1] == 5:
         raise ValueError("DoA is equal to 5, number of features for sklearn func should be 5. Check shape of data.")
 
-    scaler = StandardScaler()
+    # normalising all the DoA values between [0, 1]
+    scaler = MinMaxScaler()
     glove_data_processed = scaler.fit_transform(glove_mapped)
 
     directory = f'./processed_data/glove/dataset{dataset}'
@@ -297,7 +311,7 @@ def glove_process(size_val, stride_val, user, dataset):
     np.save(f"{directory}/glove_{glove_data_ID}.npy", glove_data_processed)
 
 
-    return glove_data_ID
+    return glove_data_processed
 
 
 
