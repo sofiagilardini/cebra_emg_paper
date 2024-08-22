@@ -43,6 +43,16 @@ def lowpass_filter(data, cutoff, fs, order):
 
 # --------- FILTERING END -------------------------#
 
+def getProcessedData(user: int, dataset: int, mode: str):
+
+    """
+    mode = ["glove", "emg"]
+    
+    """
+
+    data = np.load(f"./processed_data/{mode}/dataset{dataset}/{mode}_{user}_{dataset}.npy")
+
+    return data
 
 
 ## --------- SLIDING WINDOW FUNCTIONS ---------------- #
@@ -78,57 +88,16 @@ def slidingWindowGlove(x, win_size, win_stride):
     windows = []
 
     for i in range(num_windows):
-
-
         start_index = i * win_stride
         end_index = start_index + win_size
-        window = x[start_index:end_index]
-
-        # Calculate start index for the last 40% of the window #updated -- the whole window 
-        mean_start_index = start_index + int(win_size)
-
-        end_segment_window = x[mean_start_index:end_index]
-
+        end_segment_window = x[start_index:end_index] # not working
         window_mean = np.mean(end_segment_window)
-
         windows.append(window_mean)
 
     # convert the list of windows to a numpy array
-        
     windows_array = np.array(windows) # this returns an array where each element is the final data point for that window 
 
     return windows_array
-
-
-def slidingWindowRestimulus(x, win_size, win_stride):
-
-
-    num_windows = 1 + (len(x) - win_size) // win_stride
-
-    windows = []
-
-    for i in range(num_windows):
-        start_index = i * win_stride
-        end_index = start_index + win_size
-        window = x[start_index:end_index]
-
-        # Calculate the mode of the window
-        mode_result = stats.mode(window)
-        
-        if np.isscalar(mode_result.mode):
-            window_mode = mode_result.mode
-        else:
-            window_mode = mode_result.mode[0]
-        
-        windows.append(window_mode)
-
-    # convert the list of windows to a numpy array
-        
-    windows_array = np.array(windows) # this returns an array where each element is the
-    # final data point for that window 
-
-    return windows_array
-
 
 
 def WL(windows_array, win_size, win_stride):
@@ -157,19 +126,6 @@ def LV(windows_array, win_size):
     return windows_LV_array
 
 
-def RMS(windows_array, win_size, win_stride):
-
-    windows_RMS_list = []
-
-    for window in windows_array:
-
-        window_RMS = np.sqrt(np.mean(np.square(window)))
-        windows_RMS_list.append(window_RMS) 
-    windows_RMS_array = np.array(windows_RMS_list)
-
-    return windows_RMS_array
-
-
 def slidingWindowParameters(frequency, size_secs, stride_secs):
     # NB: size and stride should be in Seconds (150ms = 150 * 10**(-3))
     window_size = frequency * size_secs
@@ -182,94 +138,57 @@ def slidingWindowParameters(frequency, size_secs, stride_secs):
 
 ### ------- EMG , GLOVE AND RESTIMULUS PROCESSING START ----- ###
 
-def emg_process(cutoff_val, size_val, stride_val, user, dataset, order):
-        
-    feat_ID = 'all'
+def emg_process(size_val, stride_val, user, dataset):
 
     def ensure_directory_exists(directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
-    
-    if feat_ID == 'all':
-        raw_bool = False
-        WL_bool = True
-        LV_bool = True
-        RMS_bool = True
-        # SSC_bool = True
 
-    
     fs = 2000
 
     size, stride = slidingWindowParameters(2000, (size_val*10**(-3)), (stride_val*10**(-3)))
 
     size = int(size)
     stride = int(stride)
+
     # 2. get the data: input is user and which dataset 
 
-    emg_u1_d1, glove_u1_d1, stimulus_u1_d1 = getdata(user = user, dataset = dataset)
+    emg_temp, glove_temp, stim_temp = getdata(user = user, dataset = dataset)
 
     # 3. low-pass filter the EMG data and extract features
 
-    for i in range(emg_u1_d1.shape[1]):
-        emg_u1_d1[:, i] = lowpass_filter(emg_u1_d1[:, i], cutoff_val, fs, order)
+    cutoff_val = 450
+    order = 2
 
-    del glove_u1_d1, stimulus_u1_d1
+    for i in range(emg_temp.shape[1]):
+        emg_temp[:, i] = lowpass_filter(emg_temp[:, i], cutoff_val, fs, order)
 
-    if raw_bool: 
+    del glove_temp, stim_temp
 
+    emg_windows = []
 
-        # standardise the data 
-
-        scaler = StandardScaler()
-        emg_u1_d1 = scaler.fit_transform(emg_u1_d1)
-
-        emg_data_ID = f"{user}_{dataset}"
-
-        directory = f"./processed_data/emg_raw/dataset{dataset}"
-
-        ensure_directory_exists(directory)
-    
-        np.save(f"{directory}/emg_{emg_data_ID}.npy", emg_u1_d1)
+    # Loop through each channelc
+    num_channelsEMG = emg_temp.shape[1] 
 
 
-    if not raw_bool:
+    # decide which features to be extracted: 
+    WL_bool = True
+    LV_bool = True
 
-        emg_windows = []
+    # low pass and features -> 
 
-        # Loop through each channelc
-        num_channelsEMG = emg_u1_d1.shape[1] 
+    for i in range(num_channelsEMG):
+        
+        
+        emg_window = slidingWindowEMG(emg_temp[:, i], size, stride)
 
+        if WL_bool: 
+            emg_window_WL = WL(emg_window, size, stride) 
+            emg_windows.append(emg_window_WL)
 
-        # low pass and features -> 
-
-        for i in range(num_channelsEMG):
-            
-            
-            emg_window = slidingWindowEMG(emg_u1_d1[:, i], size, stride)
-
-            if WL_bool: 
-                emg_window_WL = WL(emg_window, size, stride) 
-                emg_windows.append(emg_window_WL)
-
-
-
-            if LV_bool:
-                emg_window_LV = LV(emg_window, size)
-                emg_windows.append(emg_window_LV)
-
-
-
-            if RMS_bool:
-                emg_window_RMS = RMS(emg_window, size, stride)
-                emg_windows.append(emg_window_RMS)
-
-
-
-            # emg_window_SSC = SSC(emg_window, size, stride)
-            # SSC_bool = True
-            # print("SSC", emg_window_SSC)
-
-            # emg_windows.append(emg_window_SSC)
+        if LV_bool:
+            emg_window_LV = LV(emg_window, size)
+            emg_windows.append(emg_window_LV)
 
 
         emg_windows_stacked = np.array(emg_windows)
@@ -278,150 +197,108 @@ def emg_process(cutoff_val, size_val, stride_val, user, dataset, order):
         scaler = StandardScaler()
         emg_windows_stacked = scaler.fit_transform(emg_windows_stacked)
 
-
         directory = f'./processed_data/emg/dataset{dataset}'
 
         ensure_directory_exists(directory)
 
 
-        emg_data_ID = f"{user}_{dataset}_{cutoff_val}_{size_val}_{stride_val}_{feat_ID}"
+        emg_data_ID = f"{user}_{dataset}"
 
         
         np.save(f"{directory}/emg_{emg_data_ID}.npy", emg_windows_stacked)
-
 
 
     return emg_data_ID
 
 
 
-def glove_process(size_val, stride_val, user, dataset, rawBool: bool):
+def glove_process(size_val, stride_val, user, dataset):
+
+    """
+    The transformation matrix is from: 
+
+    Krasoulis, Agamemnon, Sethu Vijayakumar, and Kianoush Nazarpour. 
+    "Effect of user practice on prosthetic finger control with an 
+    intuitive myoelectric decoder." Frontiers in neuroscience 13 (2019): 461612.
+
+    https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2019.00891/full#supplementary-material
+
+    """
 
     def ensure_directory_exists(directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
     
-    emg_u1_d1, glove_u1_d1, stimulus_u1_d1 = getdata(user = user, dataset = dataset)
-
-    del emg_u1_d1, stimulus_u1_d1
-
-    if rawBool == True:  
-
-        scaler = StandardScaler()
-        glove_u1_d1 = scaler.fit_transform(glove_u1_d1)
-
-        glove_data_ID = f"{user}_{dataset}"
-
-        directory = f"./processed_data/glove_raw/dataset{dataset}"
-
-        ensure_directory_exists(directory)
+    emg_temp, glove_temp, stim_temp = getdata(user = user, dataset = dataset)
+    del emg_temp, stim_temp
     
-        np.save(f"{directory}/glove_{glove_data_ID}.npy", glove_u1_d1)
+    size, stride = slidingWindowParameters(2000, (size_val*10**(-3)), (stride_val*10**(-3)))
+    size = int(size)
+    stride = int(stride)
 
 
+    # perform sliding windows on the data
+        
+    glove_data = []
 
-    if rawBool == False:
+    for i in range(glove_temp.shape[1]):
+
+        glove_data.append(slidingWindowGlove(glove_temp[:, i], size, stride))
+
     
-        size, stride = slidingWindowParameters(2000, (size_val*10**(-3)), (stride_val*10**(-3)))
-
-        size = int(size)
-        stride = int(stride)
-        
-
-        # perform sliding windows on the data
-            
-        glove_data = []
-
-        for i in range(glove_u1_d1.shape[1]):
-
-            glove_data.append(slidingWindowGlove(glove_u1_d1[:, i], size, stride))
-
-        
-        glove_data_array = np.array(glove_data).T
-
-        scaler = StandardScaler()
-        glove_data_array = scaler.fit_transform(glove_data_array)
+    glove_data_array = np.array(glove_data).T
 
 
-        directory = f'./processed_data/glove/dataset{dataset}'
+    A_T = np.array([
+        [0.639, 0, 0, 0, 0], 
+        [0.383, 0, 0, 0, 0], 
+        [0, 1, 0, 0, 0], 
+        [-0.639, 0, 0, 0, 0], 
+        [0, 0, 0.4, 0 , 0], 
+        [0, 0, 0.6, 0, 0], 
+        [0, 0, 0, 0.4, 0], 
+        [0, 0, 0, 0.6, 0], 
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0.1667], 
+        [0, 0, 0, 0, 0.3333], 
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0.1667], 
+        [0, 0, 0, 0, 0.3333], 
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0], 
+        [-0.19, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+    ])
 
-        def ensure_directory_exists(directory):
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+    A = A_T.T
+
+    glove_mapped = A @ glove_data_array.T
+
+    # get into expected sklearn input X.shape should be [number_of_samples, number_of_features] for scaling
+
+    glove_mapped = glove_mapped.T
+
+    # check that the shape is correct for sklearn scaling:
+    if not glove_mapped.shape[1] == 5:
+        raise ValueError("DoA is equal to 5, number of features for sklearn func should be 5. Check shape of data.")
+
+    scaler = StandardScaler()
+    glove_data_processed = scaler.fit_transform(glove_mapped)
+
+    directory = f'./processed_data/glove/dataset{dataset}'
+
+    def ensure_directory_exists(directory):
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
 
-        ensure_directory_exists(directory)
-
-
-        glove_data_ID = f"{user}_{dataset}_{size_val}_{stride_val}"
-
-        
-        np.save(f"{directory}/glove_{glove_data_ID}.npy", glove_data_array)
-
-
+    ensure_directory_exists(directory)
+    glove_data_ID = f"{user}_{dataset}"
+    np.save(f"{directory}/glove_{glove_data_ID}.npy", glove_data_processed)
 
 
     return glove_data_ID
 
-
-
-
-def restimulusProcess(size_val, stride_val, user, dataset, rawBool: bool):
-
-
-    emg_u1_d1, glove_u1_d1, restimulus_u1_d1 = getdata(user = user, dataset = dataset)
-
-    del emg_u1_d1, glove_u1_d1
-
-    def ensure_directory_exists(directory):
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-
-    if rawBool == True:     
-
-        restimulus_data_ID = f"{user}_{dataset}"
-
-        directory = f"./processed_data/restimulus_raw/dataset{dataset}"
-
-        ensure_directory_exists(directory)
-    
-        np.save(f"{directory}/restimulus_{restimulus_data_ID}.npy", restimulus_u1_d1.astype(int))
-
-
-    if rawBool == False:
-    
-        size, stride = slidingWindowParameters(2000, (size_val*10**(-3)), (stride_val*10**(-3)))
-
-        size = int(size)
-        stride = int(stride)
-        
-
-        restimulus_data = []
-
-        for i in range(restimulus_u1_d1.shape[1]):
-            restimulus_data.append(slidingWindowRestimulus(restimulus_u1_d1[:, i], size, stride))
-
-        restimulus_data_array = np.array(restimulus_data).T
-
-        directory = f'./processed_data/restimulus/dataset{dataset}'
-
-        def ensure_directory_exists(directory):
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-
-
-        ensure_directory_exists(directory)
-
-
-        restimulus_data_ID = f"{user}_{dataset}_{size_val}_{stride_val}"
-
-        
-        np.save(f"{directory}/restimulus_{restimulus_data_ID}.npy", restimulus_data_array.astype(int))
-
-
-
-    return restimulus_data_ID
 
 
 
