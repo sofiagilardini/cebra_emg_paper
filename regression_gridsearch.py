@@ -4,6 +4,7 @@ import cebra
 import aux_functions as auxf
 import joblib
 from sklearn.neural_network import MLPRegressor
+from sklearn.decomposition import PCA
 
 
 params = {"font.family" : "serif"}
@@ -22,21 +23,21 @@ dataset_list = [1, 2, 3]
 
 
 
-# time_offset_dict = {
-#     "offset5-model" : [1, 2, 4], 
-#     "offset10-model" : [2, 4, 8],
-#     "offset36-model" : [2, 10, 20, 32]
-# }
-
 time_offset_dict = {
-    "offset5-model" : [1], 
-    "offset10-model" : [1],
-    "offset36-model" : [1]
+    "offset5-model" : [1, 2, 4], 
+    "offset10-model" : [2, 4, 8],
+    "offset36-model" : [2, 10, 20, 32]
 }
 
+# time_offset_dict = {
+#     "offset5-model" : [1], 
+#     "offset10-model" : [1],
+#     "offset36-model" : [1]
+# }
 
 
-def runTraining():
+
+def runCebraTraining():
 
     iters = 2
 
@@ -102,7 +103,7 @@ def runTraining():
 
 # using the CEBRA model trained on dataset1, produce embeddings for dataset1, dataset2 and dataset 3
 
-def runEmbeddings():
+def runEmbeddings(dimred_type: str):
 
     user_list = [1]
 
@@ -110,30 +111,62 @@ def runEmbeddings():
 
         dataset_list = [1, 2, 3]
 
-        for dataset in dataset_list:
-            emg = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-            glove = np.load(f"./processed_data/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+        if dimred_type == 'cebra':
 
-            for model_arch in model_arch_list:
-                for cebra_modal in cebra_modal_list:
-                    for min_temp_val in min_temp_list:
-
-                        offset_list = time_offset_dict[model_arch]
-
-                        for time_offset_val in offset_list:
-
-                            cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
-                            cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
-
-                            cebra_model = cebra.CEBRA.load(f"{cebra_model_dir}/{cebra_model_ID}.pt")
+            for dataset in dataset_list:
+                emg = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+                glove = np.load(f"./processed_data/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
 
-                            embedding = cebra_model.transform(emg)
-        
-                            embedding_dir = f'./embeddings/user{user}/{cebra_modal}/dataset{dataset}'
-                            auxf.ensure_directory_exists(embedding_dir)
+                for model_arch in model_arch_list:
+                    for cebra_modal in cebra_modal_list:
+                        for min_temp_val in min_temp_list:
 
-                            np.save(f"{embedding_dir}/{cebra_model_ID}.npy", embedding)
+                            offset_list = time_offset_dict[model_arch]
+
+                            for time_offset_val in offset_list:
+
+                                cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
+                                cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
+
+                                cebra_model = cebra.CEBRA.load(f"{cebra_model_dir}/{cebra_model_ID}.pt")
+
+                                embedding = cebra_model.transform(emg)
+            
+                                embedding_dir = f'./embeddings/user{user}/{cebra_modal}/dataset{dataset}'
+                                auxf.ensure_directory_exists(embedding_dir)
+
+                                np.save(f"{embedding_dir}/{cebra_model_ID}.npy", embedding)
+
+
+        if dimred_type != 'cebra':
+
+            dataset = 1
+            emg_d1 = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+
+            if dimred_type == 'PCA':
+                dimred_model = PCA(n_components=3).fit(emg_d1)
+
+            embedding = dimred_model.transform(emg_d1)
+            embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+            auxf.ensure_directory_exists(embedding_dir)
+
+            np.save(f"{embedding_dir}/{dimred_type}.npy", embedding)
+
+            dataset_valtest = [2, 3]
+
+            for dataset in dataset_valtest:
+                emg_vt = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+                embedding_vt = dimred_model.transform(emg_vt)
+                embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+                auxf.ensure_directory_exists(embedding_dir)
+
+                np.save(f"{embedding_dir}/{dimred_type}.npy", embedding_vt)
+
+
+
+
+
 
 
 
@@ -192,5 +225,9 @@ def RunPredictions():
 
                         
 
+runEmbeddings('PCA')
+# runCebraTraining()
+# runEmbeddings()
+# RunPredictions()
 
-RunPredictions()
+
