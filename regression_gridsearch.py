@@ -66,7 +66,13 @@ for model_arch in model_arch_list:
                                         min_temperature = min_temp_val, 
                                         hybrid = hybrid_bool)
 
-                cebra_model.fit(emg, glove)
+
+
+                if cebra_modal == 'cebra_b' or cebra_modal == 'cebra_h':
+                    cebra_model.fit(emg, glove)
+
+                elif cebra_modal == 'cebra_t':
+                    cebra_model.fit(emg)
 
                 cebra_model_dir = f'./cebra_models/{cebra_modal}'
                 auxf.ensure_directory_exists(cebra_model_dir)
