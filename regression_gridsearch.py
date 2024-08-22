@@ -5,6 +5,7 @@ import aux_functions as auxf
 import joblib
 from sklearn.neural_network import MLPRegressor
 from sklearn.decomposition import PCA
+import umap
 
 
 params = {"font.family" : "serif"}
@@ -15,8 +16,8 @@ np.random.seed(42)
 model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
 min_temp_list = [0, 0.2, 0.4, 0.6, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
-user_list = [1]
-dataset_list = [1, 2, 3]
+user_list = [1, 2]
+dataset_list = [1, 2]
 
 
 
@@ -45,8 +46,8 @@ def runCebraTraining():
 
         dataset = 1 # this should not change, dataset for training is always 1
 
-        emg = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-        glove = np.load(f"./processed_data/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+        emg = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+        glove = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
 
         for model_arch in model_arch_list:
@@ -105,7 +106,6 @@ def runCebraTraining():
 
 def runEmbeddings(dimred_type: str):
 
-    user_list = [1]
 
     for user in user_list:
 
@@ -114,8 +114,9 @@ def runEmbeddings(dimred_type: str):
         if dimred_type == 'cebra':
 
             for dataset in dataset_list:
-                emg = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-                glove = np.load(f"./processed_data/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+
+                emg = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+                glove = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
 
                 for model_arch in model_arch_list:
@@ -142,7 +143,7 @@ def runEmbeddings(dimred_type: str):
         if dimred_type != 'cebra':
 
             dataset = 1
-            emg_d1 = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+            emg_d1 = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
 
             if dimred_type == 'PCA':
                 dimred_model = PCA(n_components=3).fit(emg_d1)
@@ -156,7 +157,7 @@ def runEmbeddings(dimred_type: str):
             dataset_valtest = [2, 3]
 
             for dataset in dataset_valtest:
-                emg_vt = np.load(f"./processed_data/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+                emg_vt = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
                 embedding_vt = dimred_model.transform(emg_vt)
                 embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
                 auxf.ensure_directory_exists(embedding_dir)
@@ -170,10 +171,7 @@ def runEmbeddings(dimred_type: str):
 
 
 
-def RunPredictions():
-
-    MLP_struct = (100, 120, 100) # ? 
-    iters_MLP = 5 # ?
+def RunPredictions_CEBRA():
 
     # first train all the models (dataset = 1)
 
@@ -190,7 +188,7 @@ def RunPredictions():
 
                         cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
                         emg_embedding_d1 = np.load(f"./embeddings/user{user}/{cebra_modal}/dataset{dataset}/{cebra_model_ID}.npy")
-                        glove_d1 = np.load(f"./processed_data/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+                        glove_d1 = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
                         MLP_dir = f'./trained_MLP/user{user}/{cebra_modal}'
                         auxf.ensure_directory_exists(MLP_dir)
@@ -222,12 +220,63 @@ def RunPredictions():
                             np.save(f"{pred_path}/{cebra_model_ID}", pred_d1)
 
 
+MLP_struct = (100, 120, 100) # ? 
+iters_MLP = 5 # ?
 
-                        
+runCebraTraining()       
+runEmbeddings('cebra')
+RunPredictions_CEBRA()
+
 
 runEmbeddings('PCA')
-# runCebraTraining()
-# runEmbeddings()
-# RunPredictions()
 
 
+
+
+
+def RunPredictions_(dimred_type: str):
+
+    """
+    dimred_type = ['PCA', 'UMAP', 'Autoencoder']
+    
+    """
+
+    # first train all the models (dataset = 1)
+    
+    for user in user_list:
+
+        MLP_dir = f'./trained_MLP/user{user}/{dimred_type}'
+        auxf.ensure_directory_exists(MLP_dir)
+        MLP_path = f"{MLP_dir}/{dimred_type}.pkl"
+
+        reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
+            max_iter = iters_MLP,
+            shuffle = False,
+            verbose = True)
+        
+        dataset = 1
+        emg_embedding_d1 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_type}.npy")
+        glove_d1 = np.load(f"processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+
+        # fit MLP
+        reg_MLP.fit(emg_embedding_d1, glove_d1)  
+        # save MLP
+
+        joblib.dump(reg_MLP, MLP_path) 
+        # load MLP
+        trained_MLP = joblib.load(MLP_path)
+
+        # now we have the trained MLP - we can make predictions for dataset1, dataset2 and dataset3
+
+        for dataset in dataset_list:
+
+            emg_embedding_ = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_type}.npy")
+
+            pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+            auxf.ensure_directory_exists(pred_path)
+
+            pred_d1 = trained_MLP.predict(emg_embedding_)
+            np.save(f"{pred_path}/{dimred_type}.npy", pred_d1)
+
+
+RunPredictions_("PCA")
