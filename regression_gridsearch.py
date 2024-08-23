@@ -13,22 +13,7 @@ plt.rcParams.update(params)
 
 np.random.seed(42)
 
-model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-min_temp_list = [0, 0.2, 0.4, 0.6, 0.8]
-cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
-user_list = [1, 2]
-dataset_list = [1, 2]
 
-
-
-
-
-
-time_offset_dict = {
-    "offset5-model" : [1, 2, 4], 
-    "offset10-model" : [2, 4, 8],
-    "offset36-model" : [2, 10, 20, 32]
-}
 
 # time_offset_dict = {
 #     "offset5-model" : [1], 
@@ -220,63 +205,171 @@ def RunPredictions_CEBRA():
                             np.save(f"{pred_path}/{cebra_model_ID}", pred_d1)
 
 
-MLP_struct = (100, 120, 100) # ? 
-iters_MLP = 5 # ?
-
-runCebraTraining()       
-runEmbeddings('cebra')
-RunPredictions_CEBRA()
-
-
-runEmbeddings('PCA')
 
 
 
 
 
-def RunPredictions_(dimred_type: str):
+def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
 
     """
     dimred_type = ['PCA', 'UMAP', 'Autoencoder']
+
+    dimred_ID e.g : 'offset5-model_0_1'
     
     """
 
     # first train all the models (dataset = 1)
+
+    MLP_dir = f'./trained_MLP/user{user}/{dimred_type}'
+    auxf.ensure_directory_exists(MLP_dir)
+    MLP_path = f"{MLP_dir}/{dimred_ID}.pkl"
+
+    reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
+        max_iter = iters_MLP,
+        shuffle = False,
+        verbose = True)
     
-    for user in user_list:
+    dataset = 1
+    emg_embedding_d1 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+    glove_d1 = auxf.getProcessedData(user = user,
+                                     dataset=dataset, 
+                                     mode = 'glove')
 
-        MLP_dir = f'./trained_MLP/user{user}/{dimred_type}'
-        auxf.ensure_directory_exists(MLP_dir)
-        MLP_path = f"{MLP_dir}/{dimred_type}.pkl"
+    # fit MLP
+    reg_MLP.fit(emg_embedding_d1, glove_d1)  
+    # save MLP
 
-        reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
-            max_iter = iters_MLP,
-            shuffle = False,
-            verbose = True)
-        
-        dataset = 1
-        emg_embedding_d1 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_type}.npy")
-        glove_d1 = np.load(f"processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+    joblib.dump(reg_MLP, MLP_path) 
+    # load MLP
+    trained_MLP = joblib.load(MLP_path)
 
-        # fit MLP
-        reg_MLP.fit(emg_embedding_d1, glove_d1)  
-        # save MLP
+    pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+    auxf.ensure_directory_exists(pred_path)
 
-        joblib.dump(reg_MLP, MLP_path) 
-        # load MLP
-        trained_MLP = joblib.load(MLP_path)
+    pred_d1 = trained_MLP.predict(emg_embedding_d1)
+    np.save(f"{pred_path}/{dimred_ID}.npy", pred_d1)
 
-        # now we have the trained MLP - we can make predictions for dataset1, dataset2 and dataset3
+    # now we have the trained MLP - we can make predictions for dataset1, dataset2 
 
-        for dataset in dataset_list:
+    dataset = 2
+    emg_embedding_d2 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
 
-            emg_embedding_ = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_type}.npy")
+    pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+    auxf.ensure_directory_exists(pred_path)
 
-            pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
-            auxf.ensure_directory_exists(pred_path)
-
-            pred_d1 = trained_MLP.predict(emg_embedding_)
-            np.save(f"{pred_path}/{dimred_type}.npy", pred_d1)
+    pred_d2 = trained_MLP.predict(emg_embedding_d2)
+    np.save(f"{pred_path}/{dimred_ID}.npy", pred_d2)
 
 
-RunPredictions_("PCA")
+
+
+
+def runEmbeddings_UMAP(user: int, 
+                       n_neighbors: float, 
+                       min_dist: float): 
+
+    """
+    keeping components = 3, and metric = 'cosine'
+
+    n_neighbors: balance between maintaining global and local structure in the data. 
+    - low values, concentrate on very local structure
+    - [5, 10, 20, 100, 200]
+
+    min_dist: how tightly UMAP is allowed to bring points together in the embedding 
+    - low values of min_dist will result in clumpier embeddings
+    - [0, 0.1, 0.25, 0.5, 0.8]
+    
+    """
+
+    # constants 
+
+    n_components = 3
+    metric = 'cosine'
+    dimred_type = 'UMAP'
+    dimred_ID = f'{dimred_type}_{n_neighbors}_{min_dist}'
+
+    # load user's emg data for dataset 1 to fit UMAP
+
+    dataset = 1
+    emg_d1 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+    # fit UMAP on emg_d1
+
+    umap_model = umap.UMAP(n_neighbors=n_neighbors, 
+                           min_dist = min_dist, 
+                           n_components=n_components, 
+                           metric = metric)
+    
+    embedding = umap_model.fit_transform(emg_d1)
+
+    embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+    auxf.ensure_directory_exists(embedding_dir)
+
+    np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
+
+    # transform dataset 2 and save
+
+    dataset = 2
+    emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+
+    embedding = umap_model.transform(emg_d2)
+    embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+    auxf.ensure_directory_exists(embedding_dir)
+
+    np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
+
+    # length_ = np.arange(0, len(glove_d1))
+
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
+    # ax.scatter(embedding_d1[:, 0], embedding_d1[:, 1], embedding_d1[:, 2], cmap= "plasma", c = length_)
+    # plt.show()
+
+
+# n_neighbours_list = [5, 10, 20, 100, 200]
+# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+# user_list = [1,2]
+
+
+
+# ---- GLOBAL ------- #
+
+user_list = [1, 2]
+dataset_list = [1, 2]
+MLP_struct = (100, 120, 100) # ? 
+iters_MLP = 5 # ?
+
+# ------- CEBRA ------- #
+
+model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
+min_temp_list = [0, 0.2, 0.4, 0.6, 0.8]
+cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
+
+time_offset_dict = {
+    "offset5-model" : [1, 2, 4], 
+    "offset10-model" : [2, 4, 8],
+    "offset36-model" : [2, 10, 20, 32]
+}
+
+# ------- CEBRA END ------- #
+
+# ----- UMAP -------- #
+
+n_neighbours_list = [5, 10]
+min_dist_list = [0, 0.1]
+
+
+for user in user_list:
+    for n_neighbors in n_neighbours_list:
+        for min_dist in min_dist_list:
+            dimred_type = "UMAP"
+            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+
+            runEmbeddings_UMAP(user=user, 
+                            n_neighbors=n_neighbors, 
+                            min_dist=min_dist)
+            RunPredictions_(dimred_type = dimred_type, 
+                            dimred_ID=dimred_ID, 
+                            user = user)
+            
+# ----- UMAP END ------- #
