@@ -14,195 +14,131 @@ plt.rcParams.update(params)
 np.random.seed(42)
 
 
+def runCebraTraining(
+        user: int, 
+        model_arch: str, 
+        cebra_modal: str, 
+        min_temp_val: float, 
+        time_offset_val: int):
 
-# time_offset_dict = {
-#     "offset5-model" : [1], 
-#     "offset10-model" : [1],
-#     "offset36-model" : [1]
-# }
+
+    dataset = 1 # this should *not* change, dataset for training is always dataset1
+
+    emg = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
+    glove = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+
+    if cebra_modal == 'cebra_b':
+        condit = 'time_delta'
+        hybrid_bool = False
+
+    elif cebra_modal == 'cebra_h':
+        condit = 'time_delta'
+        hybrid_bool = True
+
+    elif cebra_modal == 'cebra_t':
+        condit = 'time'
+        hybrid_bool = False
+
+
+    cebra_model = cebra.CEBRA(model_architecture= model_arch,
+                            batch_size=512,
+                            learning_rate=3e-4,
+                            output_dimension=3,
+                            max_iterations=iters_CEBRA,
+                            distance='cosine',
+                            device='cuda_if_available',
+                            verbose=True,
+                            conditional= condit,
+                            time_offsets = time_offset_val,
+                            min_temperature = min_temp_val, 
+                            hybrid = hybrid_bool)
 
 
 
-def runCebraTraining():
+    if cebra_modal == 'cebra_b' or cebra_modal == 'cebra_h':
+        cebra_model.fit(emg, glove)
 
-    iters = 2
+    elif cebra_modal == 'cebra_t':
+        cebra_model.fit(emg)
 
-    for user in user_list:
+    cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
+    auxf.ensure_directory_exists(cebra_model_dir)
+    cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
+    cebra_model.save(f"{cebra_model_dir}/{cebra_model_ID}.pt")
 
-        dataset = 1 # this should not change, dataset for training is always 1
+
+
+# using the CEBRA model trained on dataset1, produce embeddings for dataset1 and dataset2 
+
+def runEmbeddings_CEBRA(user: int,
+                  model_arch: str, 
+                  cebra_modal: str, 
+                  min_temp_val: float, 
+                  time_offset_val: int):
+
+
+    for dataset in dataset_trainval:
 
         emg = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
         glove = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
+        cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
+        cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
 
-        for model_arch in model_arch_list:
-            for cebra_modal in cebra_modal_list:
-                for min_temp_val in min_temp_list:
+        cebra_model = cebra.CEBRA.load(f"{cebra_model_dir}/{cebra_model_ID}.pt")
 
-                    offset_list = time_offset_dict[model_arch]
+        embedding = cebra_model.transform(emg)
 
-                    for time_offset_val in offset_list:
+        embedding_dir = f'./embeddings/user{user}/{cebra_modal}/dataset{dataset}'
+        auxf.ensure_directory_exists(embedding_dir)
 
-                        if cebra_modal == 'cebra_b':
-                            condit = 'time_delta'
-                            hybrid_bool = False
+        np.save(f"{embedding_dir}/{cebra_model_ID}.npy", embedding)
 
-                        elif cebra_modal == 'cebra_h':
-                            condit = 'time_delta'
-                            hybrid_bool = True
+    
 
-                        elif cebra_modal == 'cebra_t':
-                            condit = 'time'
-                            hybrid_bool = False
-
-
-
-                        cebra_model = cebra.CEBRA(model_architecture= model_arch,
-                                                batch_size=512,
-                                                learning_rate=3e-4,
-                                                output_dimension=3,
-                                                max_iterations=iters,
-                                                distance='cosine',
-                                                device='cuda_if_available',
-                                                verbose=True,
-                                                conditional= condit,
-                                                time_offsets = time_offset_val,
-                                                min_temperature = min_temp_val, 
-                                                hybrid = hybrid_bool)
-
-
-
-                        if cebra_modal == 'cebra_b' or cebra_modal == 'cebra_h':
-                            cebra_model.fit(emg, glove)
-
-                        elif cebra_modal == 'cebra_t':
-                            cebra_model.fit(emg)
-
-                        cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
-                        auxf.ensure_directory_exists(cebra_model_dir)
-                        cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
-                        cebra_model.save(f"{cebra_model_dir}/{cebra_model_ID}.pt")
-
-
-    # ----------------- END OF ALL CEBRA MODEL TRAINING ----------------------- # 
-
-
-# using the CEBRA model trained on dataset1, produce embeddings for dataset1, dataset2 and dataset 3
-
-def runEmbeddings(dimred_type: str):
-
-
-    for user in user_list:
-
-        dataset_list = [1, 2, 3]
-
-        if dimred_type == 'cebra':
-
-            for dataset in dataset_list:
-
-                emg = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-                glove = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
-
-
-                for model_arch in model_arch_list:
-                    for cebra_modal in cebra_modal_list:
-                        for min_temp_val in min_temp_list:
-
-                            offset_list = time_offset_dict[model_arch]
-
-                            for time_offset_val in offset_list:
-
-                                cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
-                                cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
-
-                                cebra_model = cebra.CEBRA.load(f"{cebra_model_dir}/{cebra_model_ID}.pt")
-
-                                embedding = cebra_model.transform(emg)
-            
-                                embedding_dir = f'./embeddings/user{user}/{cebra_modal}/dataset{dataset}'
-                                auxf.ensure_directory_exists(embedding_dir)
-
-                                np.save(f"{embedding_dir}/{cebra_model_ID}.npy", embedding)
-
-
-        if dimred_type != 'cebra':
-
-            dataset = 1
-            emg_d1 = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-
-            if dimred_type == 'PCA':
-                dimred_model = PCA(n_components=3).fit(emg_d1)
-
-            embedding = dimred_model.transform(emg_d1)
-            embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
-            auxf.ensure_directory_exists(embedding_dir)
-
-            np.save(f"{embedding_dir}/{dimred_type}.npy", embedding)
-
-            dataset_valtest = [2, 3]
-
-            for dataset in dataset_valtest:
-                emg_vt = np.load(f"./processed_data/user{user}/emg/dataset{dataset}/emg_{user}_{dataset}.npy")
-                embedding_vt = dimred_model.transform(emg_vt)
-                embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
-                auxf.ensure_directory_exists(embedding_dir)
-
-                np.save(f"{embedding_dir}/{dimred_type}.npy", embedding_vt)
-
-
-
-
-
-
-
-
-def RunPredictions_CEBRA():
+def RunPredictions_CEBRA(
+        user: int, 
+        cebra_modal: str, 
+        model_arch: str, 
+        min_temp_val: float,
+        time_offset_val: int):
 
     # first train all the models (dataset = 1)
 
     dataset = 1
-    
-    for user in user_list:
-        for cebra_modal in cebra_modal_list:
-            for model_arch in model_arch_list:
-                for min_temp_val in min_temp_list:
-                    
-                    offset_list = time_offset_dict[model_arch]
 
-                    for time_offset_val in offset_list:
+    cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
+    emg_embedding_d1 = np.load(f"./embeddings/user{user}/{cebra_modal}/dataset{dataset}/{cebra_model_ID}.npy")
+    glove_d1 = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
 
-                        cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
-                        emg_embedding_d1 = np.load(f"./embeddings/user{user}/{cebra_modal}/dataset{dataset}/{cebra_model_ID}.npy")
-                        glove_d1 = np.load(f"./processed_data/user{user}/glove/dataset{dataset}/glove_{user}_{dataset}.npy")
+    MLP_dir = f'./trained_MLP/user{user}/{cebra_modal}'
+    auxf.ensure_directory_exists(MLP_dir)
+    MLP_path = f"{MLP_dir}/{cebra_model_ID}.pkl"
 
-                        MLP_dir = f'./trained_MLP/user{user}/{cebra_modal}'
-                        auxf.ensure_directory_exists(MLP_dir)
-                        MLP_path = f"{MLP_dir}/{cebra_model_ID}.pkl"
+    reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
+        max_iter = iters_MLP,
+        shuffle = False,
+        verbose = True)
 
-                        reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
-                            max_iter = iters_MLP,
-                            shuffle = False,
-                            verbose = True)
-    
-                        # fit MLP
-                        reg_MLP.fit(emg_embedding_d1, glove_d1)  
-                        # save MLP
+    # fit MLP
+    reg_MLP.fit(emg_embedding_d1, glove_d1)  
+    # save MLP
 
-                        joblib.dump(reg_MLP, MLP_path) 
-                        # load MLP
-                        trained_MLP = joblib.load(MLP_path)
+    joblib.dump(reg_MLP, MLP_path) 
+    # load MLP
+    trained_MLP = joblib.load(MLP_path)
 
-                        # now we have the trained MLP - we can make predictions for dataset1, dataset2 and dataset3
+    # now we have the trained MLP - we can make predictions for dataset1, dataset2 
 
-                        for dataset in dataset_list:
+    for dataset in dataset_trainval:
 
-                            emg_embedding_ = np.load(f"./embeddings/user{user}/{cebra_modal}/dataset{dataset}/{cebra_model_ID}.npy")
+        emg_embedding_ = np.load(f"./embeddings/user{user}/{cebra_modal}/dataset{dataset}/{cebra_model_ID}.npy")
 
-                            pred_path = f"./MLP_pred/user{user}/{cebra_modal}/dataset{dataset}"
-                            auxf.ensure_directory_exists(pred_path)
+        pred_path = f"./MLP_pred/user{user}/{cebra_modal}/dataset{dataset}"
+        auxf.ensure_directory_exists(pred_path)
 
-                            pred_d1 = trained_MLP.predict(emg_embedding_)
-                            np.save(f"{pred_path}/{cebra_model_ID}", pred_d1)
+        pred_d1 = trained_MLP.predict(emg_embedding_)
+        np.save(f"{pred_path}/{cebra_model_ID}", pred_d1)
 
 
 
@@ -326,18 +262,15 @@ def runEmbeddings_UMAP(user: int,
     # plt.show()
 
 
-# n_neighbours_list = [5, 10, 20, 100, 200]
-# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
-# user_list = [1,2]
-
-
 
 # ---- GLOBAL ------- #
 
 user_list = [1, 2]
-dataset_list = [1, 2]
+dataset_list = [1, 2, 3]
 MLP_struct = (100, 120, 100) # ? 
 iters_MLP = 5 # ?
+iters_CEBRA = 2
+dataset_trainval = [1, 2]
 
 # ------- CEBRA ------- #
 
@@ -351,25 +284,60 @@ time_offset_dict = {
     "offset36-model" : [2, 10, 20, 32]
 }
 
-# ------- CEBRA END ------- #
-
-# ----- UMAP -------- #
-
-n_neighbours_list = [5, 10]
-min_dist_list = [0, 0.1]
-
 
 for user in user_list:
-    for n_neighbors in n_neighbours_list:
-        for min_dist in min_dist_list:
-            dimred_type = "UMAP"
-            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+    for model_arch in model_arch_list:
+        for cebra_modal in cebra_modal_list:
+            for min_temp_val in min_temp_list:
 
-            runEmbeddings_UMAP(user=user, 
-                            n_neighbors=n_neighbors, 
-                            min_dist=min_dist)
-            RunPredictions_(dimred_type = dimred_type, 
-                            dimred_ID=dimred_ID, 
-                            user = user)
+                offset_list = time_offset_dict[model_arch]
+
+                for time_offset_val in offset_list:
+
+                    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+
+                    runCebraTraining(user = user, 
+                                     model_arch=model_arch, 
+                                     cebra_modal=cebra_modal, 
+                                     min_temp_val=min_temp_val, 
+                                     time_offset_val=time_offset_val)
+
+                    runEmbeddings_CEBRA(user = user, 
+                                        model_arch = model_arch, 
+                                        cebra_modal = cebra_modal, 
+                                        min_temp_val = min_temp_val,
+                                        time_offset_val=time_offset_val)
+                    
+                    RunPredictions_CEBRA(user = user,
+                                         cebra_modal=cebra_modal, 
+                                         model_arch=model_arch, 
+                                         min_temp_val=min_temp_val, 
+                                         time_offset_val=time_offset_val)
+
+# ------- CEBRA END ------- #
+
+# # ----- UMAP -------- #
+
+# n_neighbours_list = [5, 10]
+# min_dist_list = [0, 0.1]
+
+# n_neighbours_list = [5, 10, 20, 100, 200]
+# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+# user_list = [1,2]
+
+
+
+# for user in user_list:
+#     for n_neighbors in n_neighbours_list:
+#         for min_dist in min_dist_list:
+#             dimred_type = "UMAP"
+#             dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+
+#             runEmbeddings_UMAP(user=user, 
+#                             n_neighbors=n_neighbors, 
+#                             min_dist=min_dist)
+#             RunPredictions_(dimred_type = dimred_type, 
+#                             dimred_ID=dimred_ID, 
+#                             user = user)
             
-# ----- UMAP END ------- #
+# # ----- UMAP END ------- #
