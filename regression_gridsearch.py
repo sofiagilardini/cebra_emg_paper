@@ -262,6 +262,46 @@ def runEmbeddings_UMAP(user: int,
     # plt.show()
 
 
+def runEmbeddings_PCA(user: int): 
+
+    """
+    keeping components = 3
+    """
+
+    # constants 
+
+    dimred_type = 'PCA'
+    n_components = 3
+    dimred_ID = f'{dimred_type}'
+
+    # load user's emg data for dataset 1 to fit UMAP
+
+    dataset = 1
+    emg_d1 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+    # fit UMAP on emg_d1
+
+    pca_model = PCA(n_components=3)
+    
+    embedding = pca_model.fit_transform(emg_d1)
+
+    embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+    auxf.ensure_directory_exists(embedding_dir)
+
+    np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
+
+    # transform dataset 2 and save
+
+    dataset = 2
+    emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+
+    embedding = pca_model.transform(emg_d2)
+    embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+    auxf.ensure_directory_exists(embedding_dir)
+
+    np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
+
+
+
 
 # ---- GLOBAL ------- #
 
@@ -328,26 +368,37 @@ for user in user_list:
 
 # # ----- UMAP -------- #
 
-# n_neighbours_list = [5, 10]
-# min_dist_list = [0, 0.1]
 
-# n_neighbours_list = [5, 10, 20, 100, 200]
-# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
-# user_list = [1,2]
+n_neighbours_list = [5, 10, 20, 100, 200]
+min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
 
 
 
-# for user in user_list:
-#     for n_neighbors in n_neighbours_list:
-#         for min_dist in min_dist_list:
-#             dimred_type = "UMAP"
-#             dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+for user in user_list:
+    for n_neighbors in n_neighbours_list:
+        for min_dist in min_dist_list:
+            dimred_type = "UMAP"
+            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
-#             runEmbeddings_UMAP(user=user, 
-#                             n_neighbors=n_neighbors, 
-#                             min_dist=min_dist)
-#             RunPredictions_(dimred_type = dimred_type, 
-#                             dimred_ID=dimred_ID, 
-#                             user = user)
+            runEmbeddings_UMAP(user=user, 
+                            n_neighbors=n_neighbors, 
+                            min_dist=min_dist)
+            RunPredictions_(dimred_type = dimred_type, 
+                            dimred_ID=dimred_ID, 
+                            user = user)
             
 # # ----- UMAP END ------- #
+
+
+# ---- PCA ------
+
+for user in user_list:
+    dimred_type = "PCA"
+    dimred_ID = dimred_type
+
+    runEmbeddings_PCA(user=user)
+    RunPredictions_(dimred_type = dimred_type, 
+                    dimred_ID=dimred_ID, 
+                    user = user)
+    
+# ----- END PCA ------ #
