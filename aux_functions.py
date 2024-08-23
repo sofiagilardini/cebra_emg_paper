@@ -14,7 +14,6 @@ import pandas as pd
 from sklearn.decomposition import PCA
 import os
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from scipy import stats 
 
 def getdata(user, dataset):
     data = scipy.io.loadmat(f"./datasets/S{user}_E1_A{dataset}.mat")
@@ -26,7 +25,22 @@ def getdata(user, dataset):
 
     return emg_data, glove_data, restimulus_data
 
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
+
+def runDataProcessing(user_list: list, 
+                      dataset_list: list, 
+                      size_val: int, 
+                      stride_val: int):
+        
+    for user in user_list: 
+        for dataset in dataset_list:
+            emg = emg_process(size_val, stride_val, user, dataset)
+            glove = glove_process(size_val, stride_val, user, dataset)
+            if not emg.shape[0] == glove.shape[0]:
+                raise ValueError("EMG and Glove data shape not aligned.")
 
 # ----------- FILTERING ------------------------------#
 
@@ -41,7 +55,6 @@ def lowpass_filter(data, cutoff, fs, order):
     y = lfilter(b, a, data)
     return y
 
-# --------- FILTERING END -------------------------#
 
 def getProcessedData(user: int, dataset: int, mode: str):
 
@@ -50,12 +63,11 @@ def getProcessedData(user: int, dataset: int, mode: str):
     
     """
 
-    data = np.load(f"./processed_data/{mode}/dataset{dataset}/{mode}_{user}_{dataset}.npy")
+    data = np.load(f"./processed_data/user{user}/{mode}/dataset{dataset}/{mode}_{user}_{dataset}.npy")
 
     return data
 
 
-## --------- SLIDING WINDOW FUNCTIONS ---------------- #
 
 def slidingWindowEMG(x, win_size, win_stride):
 
@@ -133,10 +145,6 @@ def slidingWindowParameters(frequency, size_secs, stride_secs):
 
     return window_size, window_stride
 
-## --------- END SLIDING WINDOW FUNCTIONS ---------------- #
-
-
-### ------- EMG , GLOVE AND RESTIMULUS PROCESSING START ----- ###
 
 def emg_process(size_val, stride_val, user, dataset):
 
@@ -211,7 +219,7 @@ def emg_process(size_val, stride_val, user, dataset):
     scaler = StandardScaler()
     emg_windows_stacked = scaler.fit_transform(emg_windows_stacked)
 
-    directory = f'./processed_data/emg/dataset{dataset}'
+    directory = f'./processed_data/user{user}/emg/dataset{dataset}'
 
     ensure_directory_exists(directory)
 
@@ -222,6 +230,7 @@ def emg_process(size_val, stride_val, user, dataset):
     np.save(f"{directory}/emg_{emg_data_ID}.npy", emg_data_processed)
 
     return emg_data_processed
+
 
 
 
@@ -255,7 +264,6 @@ def glove_process(size_val, stride_val, user, dataset):
     glove_data = []
 
     for i in range(glove_temp.shape[1]):
-
         glove_data.append(slidingWindowGlove(glove_temp[:, i], size, stride))
 
     
@@ -299,7 +307,7 @@ def glove_process(size_val, stride_val, user, dataset):
     scaler = MinMaxScaler()
     glove_data_processed = scaler.fit_transform(glove_mapped)
 
-    directory = f'./processed_data/glove/dataset{dataset}'
+    directory = f'./processed_data/user{user}/glove/dataset{dataset}'
 
     def ensure_directory_exists(directory):
         if not os.path.exists(directory):

@@ -271,6 +271,16 @@ MLP_struct = (100, 120, 100) # ?
 iters_MLP = 5 # ?
 iters_CEBRA = 2
 dataset_trainval = [1, 2]
+size_val = 128
+stride_val = 50
+
+# ------ DATA PROCESSING ----- # 
+
+auxf.runDataProcessing(
+    user_list = user_list, 
+    dataset_list=dataset_list, 
+    size_val=size_val, 
+    stride_val = stride_val)
 
 # ------- CEBRA ------- #
 
