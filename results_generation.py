@@ -18,6 +18,8 @@ UMAP, Autoencoder and raw) and calculate the r_sq values.
 
 """
 
+dataset_trainval = [1, 2]
+
 def calcRsq(
         user: int, 
         dimred_type: str, 
@@ -94,6 +96,27 @@ time_offset_dict = {
 }
 
 
+pca_r2_results = []
+
+for user in user_list: 
+    for dataset in dataset_trainval:
+
+        r2_list_temp = [] 
+
+        r2_list_temp = calcRsq(user = user,
+                dimred_type='PCA', 
+                dimredID='PCA', 
+                dataset = dataset)
+        
+        r2_list_temp.append(user)
+        r2_list_temp.append(dataset)
+    
+        pca_r2_results.append(r2_list_temp)
+
+pca_results_df = pd.DataFrame(pca_r2_results , columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dataset'])
+pca_results_path = './results_df/all'
+auxf.ensure_directory_exists(pca_results_path)
+pca_results_df.to_csv(f"{pca_results_path}/pca_results_all.csv")
 
 r2_results = []
 
@@ -186,19 +209,7 @@ df_path = f"./results_df/summary"
 auxf.ensure_directory_exists(df_path)
 summary_df.to_csv(f"{df_path}/r2_{dimred_type}_df.csv")
 
-
-# have to go first by 
-# have to go by offset5, offset10 and offset36 because we have to decide on one of the modalities
-# so the hyperparams are min_temp and time_offset -- but no... the only one that matters is the offset5-10 or 36 that has the highest
-# average... and then you do hyperparams no? 
-
-# step1. find the model architecture with the highest average and smallest var
-# so first df is [model architecture, mvr_rsq_mean, mvr_rsq_var] -- one df for cebra_b, one for cebra_h, one for cebra_t
-# for each cebra modality, choose one model architecture
-# then - once you've chosen the model architecture for cebra behaviour, you can make a heatmap with the hyperparameters
-
-# for cebra_b
-# for cebra_modal in cebra_modal_list:
+# -------------------------------------------------------- #
 
 
 cebra_modal_results = []
@@ -308,12 +319,15 @@ auxf.ensure_directory_exists(df_path)
 best_results_df.to_csv(f"{df_path}/r2_cebra_hyperp_best.csv")
 
 
+
+
 # start generating 'total' results df
 
-# load cebra best
+# for now this is all dataset 1
 
-cebra_df = pd.read_csv('results_df/best/r2_cebra_hyperp_best.csv')
-umap_df = pd.read_csv('results_df/summary/r2_UMAP_df.csv')
+cebra_df = pd.read_csv('./results_df/best/r2_cebra_hyperp_best.csv')
+umap_df = pd.read_csv('./results_df/summary/r2_UMAP_df.csv')
+pca_df = pd.read_csv('./results_df/all/pca_results_all.csv')
 
 umap_df_filtered = umap_df[umap_df['mvr2_mean'] == umap_df['mvr2_mean'].max()]
 
@@ -321,16 +335,23 @@ cebra_b = cebra_df[cebra_df['cebra_modal'] == 'cebra_b']
 cebra_h = cebra_df[cebra_df['cebra_modal'] == 'cebra_h']
 cebra_t = cebra_df[cebra_df['cebra_modal'] == 'cebra_t']
 
+pca_d1 = pca_df[pca_df['dataset'] == 1]
+
 
 all_dimred_results = [
     [cebra_b['cebra_modal'].values[0], cebra_b['mvr2_mean'].values[0], cebra_b['mvr2_var'].values[0]],
     [cebra_h['cebra_modal'].values[0], cebra_h['mvr2_mean'].values[0], cebra_h['mvr2_var'].values[0]],
     [cebra_t['cebra_modal'].values[0], cebra_t['mvr2_mean'].values[0], cebra_t['mvr2_var'].values[0]],
-    ["UMAP", umap_df_filtered['mvr2_mean'].values[0], umap_df_filtered['mvr2_var'].values[0]]
+    ["UMAP", umap_df_filtered['mvr2_mean'].values[0], umap_df_filtered['mvr2_var'].values[0]], 
+    ["PCA", pca_d1['mvr2'].mean(), pca_d1['mvr2'].var()]
 ]
 
 results_path = './results_df/final'
 auxf.ensure_directory_exists(results_path)
 
 all_dimred_results_df = pd.DataFrame(all_dimred_results, columns = ['dimred', 'mvr2_mean', 'mvr2_var'])
-all_dimred_results_df.to_csv(f"{results_path}/all_dimred_results.csv")
+all_dimred_results_df.to_csv(f"{results_path}/train_all_dimred_results.csv")
+
+# ------------------------- repeat for 
+
+# syntax error - you decide the best combo of hyperparams based on THE DATASET 2 (VAL) not on the training performance 
