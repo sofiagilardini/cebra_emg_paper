@@ -322,7 +322,14 @@ def glove_process(size_val, stride_val, user, dataset):
     return glove_data_processed
 
 
-
-
-
 ### ------- EMG , GLOVE AND RESTIMULUS PROCESSING END ----- ###
+
+
+def getMLP_pred(user: int, 
+                dimred_type: str, 
+                dimred_ID: str, 
+                dataset: int):
+    
+    data = np.load(f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+
+    return data

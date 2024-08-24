@@ -6,6 +6,8 @@ import joblib
 from sklearn.neural_network import MLPRegressor
 from sklearn.decomposition import PCA
 import umap
+from autoencoders_skorch import AutoEncoder_1, AutoEncoder_2, AutoEncoderNet, VariationalAutoEncoder, VariationalAutoEncoderNet
+
 
 
 params = {"font.family" : "serif"}
@@ -305,7 +307,7 @@ def runEmbeddings_PCA(user: int):
 
 # ---- GLOBAL ------- #
 
-user_list = [1, 2]
+user_list = np.arange(9,13)
 dataset_list = [1, 2, 3]
 MLP_struct = (100, 120, 100) # ? 
 iters_MLP = 5 # ?
@@ -314,13 +316,13 @@ dataset_trainval = [1, 2]
 size_val = 128
 stride_val = 50
 
-# ------ DATA PROCESSING ----- # 
+# # ------ DATA PROCESSING ----- # 
 
-auxf.runDataProcessing(
-    user_list = user_list, 
-    dataset_list=dataset_list, 
-    size_val=size_val, 
-    stride_val = stride_val)
+# auxf.runDataProcessing(
+#     user_list = user_list, 
+#     dataset_list=dataset_list, 
+#     size_val=size_val, 
+#     stride_val = stride_val)
 
 # ------- CEBRA ------- #
 
@@ -335,36 +337,36 @@ time_offset_dict = {
 }
 
 
-for user in user_list:
-    for model_arch in model_arch_list:
-        for cebra_modal in cebra_modal_list:
-            for min_temp_val in min_temp_list:
+# for user in user_list:
+#     for model_arch in model_arch_list:
+#         for cebra_modal in cebra_modal_list:
+#             for min_temp_val in min_temp_list:
 
-                offset_list = time_offset_dict[model_arch]
+#                 offset_list = time_offset_dict[model_arch]
 
-                for time_offset_val in offset_list:
+#                 for time_offset_val in offset_list:
 
-                    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+#                     dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
 
-                    runCebraTraining(user = user, 
-                                     model_arch=model_arch, 
-                                     cebra_modal=cebra_modal, 
-                                     min_temp_val=min_temp_val, 
-                                     time_offset_val=time_offset_val)
+#                     runCebraTraining(user = user, 
+#                                      model_arch=model_arch, 
+#                                      cebra_modal=cebra_modal, 
+#                                      min_temp_val=min_temp_val, 
+#                                      time_offset_val=time_offset_val)
 
-                    runEmbeddings_CEBRA(user = user, 
-                                        model_arch = model_arch, 
-                                        cebra_modal = cebra_modal, 
-                                        min_temp_val = min_temp_val,
-                                        time_offset_val=time_offset_val)
+#                     runEmbeddings_CEBRA(user = user, 
+#                                         model_arch = model_arch, 
+#                                         cebra_modal = cebra_modal, 
+#                                         min_temp_val = min_temp_val,
+#                                         time_offset_val=time_offset_val)
                     
-                    RunPredictions_CEBRA(user = user,
-                                         cebra_modal=cebra_modal, 
-                                         model_arch=model_arch, 
-                                         min_temp_val=min_temp_val, 
-                                         time_offset_val=time_offset_val)
+#                     RunPredictions_CEBRA(user = user,
+#                                          cebra_modal=cebra_modal, 
+#                                          model_arch=model_arch, 
+#                                          min_temp_val=min_temp_val, 
+#                                          time_offset_val=time_offset_val)
 
-# ------- CEBRA END ------- #
+# # ------- CEBRA END ------- #
 
 # # ----- UMAP -------- #
 

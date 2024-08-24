@@ -9,6 +9,7 @@ import umap
 from autoencoders_skorch import AutoEncoder_1, AutoEncoder_2, AutoEncoderNet, VariationalAutoEncoder, VariationalAutoEncoderNet
 import pandas as pd
 from sklearn.metrics import r2_score
+import csv
 
 
 """
@@ -32,8 +33,6 @@ def calcRsq(
         dimred_ID=dimredID, 
         dataset=dataset
     )
-
-    print(y_hat.shape)
 
     y = auxf.getProcessedData(
         user = user, 
@@ -95,11 +94,13 @@ time_offset_dict = {
 }
 
 
+
 r2_results = []
 
-for user in user_list:
-    for model_arch in model_arch_list:
-        for cebra_modal in cebra_modal_list:
+for cebra_modal in cebra_modal_list:
+
+    for user in user_list:
+        for model_arch in model_arch_list:
             for min_temp_val in min_temp_list:
 
                 offset_list = time_offset_dict[model_arch]
@@ -108,11 +109,201 @@ for user in user_list:
 
                     dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
                     doa_list = calcRsq(user = user, dimred_type= cebra_modal, dimredID=dimred_ID, dataset=1)
+                    doa_list.append(user)
                     doa_list.append(dimred_ID)
+                    doa_list.append(cebra_modal)
+                    doa_list.append(model_arch)
+                    doa_list.append(min_temp_val)
+                    doa_list.append(time_offset_val)
+
                     r2_results.append(doa_list)
-                    print(dimred_ID)
+
+        # breakpoint()
+
+reg_results_df = pd.DataFrame(r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dimred_ID', 'cebra_modal', 'model_arch', 'min_temp_val', 'time_offset_val'])
+
+df_path = f"./results_df/all"
+auxf.ensure_directory_exists(df_path)
+reg_results_df.to_csv(f"{df_path}/r2_all_cebra_df.csv")
 
 
-reg_results_df = pd.DataFrame(r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'dimred_ID'])
 
-breakpoint()
+n_neighbours_list = [5, 10, 20, 100, 200]
+min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+
+r2_results = []
+
+for user in user_list:
+    for n_neighbors in n_neighbours_list:
+        for min_dist in min_dist_list:
+            dimred_type = "UMAP"
+            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+
+            doa_list = calcRsq(user = user, dimred_type= dimred_type, dimredID=dimred_ID, dataset=1)
+            doa_list.append(user)
+            doa_list.append(dimred_ID)
+            r2_results.append(doa_list)
+
+reg_results_df = pd.DataFrame(r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dimred_ID'])
+
+df_path = f"./results_df/all"
+auxf.ensure_directory_exists(df_path)
+reg_results_df.to_csv(f"{df_path}/r2_{dimred_type}_df.csv")
+
+
+
+# create UMAP results heatmap for n_neighbours and min_dist:
+
+    # create a new 'summary' df using the hyperparams
+
+hyperparam_results = []
+
+for n_neighbors in n_neighbours_list:
+    for min_dist in min_dist_list:
+
+        hyperparam_temp_list = []
+
+        dimred_type = "UMAP"
+        dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+
+        df = pd.read_csv(f"./results_df/all/r2_{dimred_type}_df.csv")
+
+        mv_rsq_mean = df['mvr2'][df['dimred_ID'] == dimred_ID].mean()
+        mv_rsq_var = df['mvr2'][df['dimred_ID'] == dimred_ID].var()
+
+        hyperparam_temp_list = [
+            n_neighbors, 
+            min_dist, 
+            mv_rsq_mean, 
+            mv_rsq_var
+        ]
+
+        hyperparam_results.append(hyperparam_temp_list)
+
+summary_df = pd.DataFrame(hyperparam_results, columns=['n_neighbors', 'min_dist', 'mean_mv_rs2', 'var_mv_rsq'])
+
+df_path = f"./results_df/summary"
+auxf.ensure_directory_exists(df_path)
+summary_df.to_csv(f"{df_path}/r2_{dimred_type}_df.csv")
+
+
+# have to go first by 
+# have to go by offset5, offset10 and offset36 because we have to decide on one of the modalities
+# so the hyperparams are min_temp and time_offset -- but no... the only one that matters is the offset5-10 or 36 that has the highest
+# average... and then you do hyperparams no? 
+
+# step1. find the model architecture with the highest average and smallest var
+# so first df is [model architecture, mvr_rsq_mean, mvr_rsq_var] -- one df for cebra_b, one for cebra_h, one for cebra_t
+# for each cebra modality, choose one model architecture
+# then - once you've chosen the model architecture for cebra behaviour, you can make a heatmap with the hyperparameters
+
+# for cebra_b
+# for cebra_modal in cebra_modal_list:
+
+
+cebra_modal_results = []
+
+for cebra_modal in cebra_modal_list: # cebra_b, cebra_h, cebra_t
+
+    cebra_modal_temp = []
+
+    dimred_type = cebra_modal
+
+    df = pd.read_csv(f"./results_df/all/r2_all_cebra_df.csv")
+    cebra_modal_mean = df['mvr2'][df['cebra_modal'] == cebra_modal].mean()
+    cebra_modal_var = df['mvr2'][df['cebra_modal'] == cebra_modal].var()
+
+    cebra_modal_temp = [
+        cebra_modal, 
+        cebra_modal_mean, 
+        cebra_modal_var
+    ]
+    
+    cebra_modal_results.append(cebra_modal_temp)
+
+    
+reg_results_df = pd.DataFrame(cebra_modal_results, columns = ['cebra_modal', 'mvr2_mean', 'mvr2_var'])
+
+df_path = f"./results_df/summary"
+auxf.ensure_directory_exists(df_path)
+reg_results_df.to_csv(f"{df_path}/cebra_modal_summary.csv")
+
+
+# have to loop over all the unique combinations of dimredID for CEBRA (i.e the combination of cebra_modal, min_temp, time_offset)
+# find the mean across all users for that hyperparam combination 
+# (for one modality - ie cebra_b)
+# then find the one with the highest mean 
+
+
+id_results = []
+
+for cebra_modal in cebra_modal_list:
+    for model_arch in model_arch_list:
+        for min_temp_val in min_temp_list:
+
+            offset_list = time_offset_dict[model_arch]
+
+            for time_offset_val in offset_list:
+
+                dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
+
+                df = pd.read_csv(f"./results_df/all/r2_all_cebra_df.csv")
+
+                id_mean = df['mvr2'][df['dimred_ID'] == dimred_ID].mean()
+                id_var = df['mvr2'][df['dimred_ID'] == dimred_ID].var()
+
+                id_list = [
+                    dimred_ID,
+                    cebra_modal, 
+                    model_arch, 
+                    min_temp_val, 
+                    time_offset_val, 
+                    id_mean, 
+                    id_var
+                ]
+
+                id_results.append(id_list)
+
+
+reg_results_df = pd.DataFrame(id_results, columns = ['dimred_ID', 'cebra_modal', 'model_arch', 'min_temp_val', 'time_offset_val', 'mvr2_mean', 'mvr2_var'])
+
+df_path = f"./results_df/summary"
+auxf.ensure_directory_exists(df_path)
+reg_results_df.to_csv(f"{df_path}/r2_cebra_hyperp_summary.csv")
+
+
+# find the best hyperparam combination for each cebra modality
+
+best_cebra_results = []
+summary_results = pd.read_csv('./results_df/summary/r2_cebra_hyperp_summary.csv')
+
+
+for cebra_modal in cebra_modal_list:
+
+    best_cebra_results_temp = []
+
+    filtered_results = summary_results[summary_results['cebra_modal'] == cebra_modal]
+
+    best_hyperparms_ind = filtered_results['mvr2_mean'].idxmax()
+
+    best_cebra_results_temp = [
+        cebra_modal, 
+        filtered_results['model_arch'][best_hyperparms_ind],
+        filtered_results['min_temp_val'][best_hyperparms_ind],
+        filtered_results['time_offset_val'][best_hyperparms_ind],
+        filtered_results['mvr2_mean'][best_hyperparms_ind],
+        filtered_results['mvr2_var'][best_hyperparms_ind],
+    ]
+
+    print(best_hyperparms_ind, filtered_results.loc[best_hyperparms_ind])
+
+
+    best_cebra_results.append(best_cebra_results_temp)
+
+
+best_results_df = pd.DataFrame(best_cebra_results, columns = ['cebra_modal', 'model_arch', 'min_temp_val', 'time_offset_val', 'mvr2_mean', 'mvr2_var'])
+
+df_path = f"./results_df/best"
+auxf.ensure_directory_exists(df_path)
+best_results_df.to_csv(f"{df_path}/r2_cebra_hyperp_best.csv")
+
