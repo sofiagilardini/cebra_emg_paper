@@ -180,7 +180,7 @@ for n_neighbors in n_neighbours_list:
 
         hyperparam_results.append(hyperparam_temp_list)
 
-summary_df = pd.DataFrame(hyperparam_results, columns=['n_neighbors', 'min_dist', 'mean_mv_rs2', 'var_mv_rsq'])
+summary_df = pd.DataFrame(hyperparam_results, columns=['n_neighbors', 'min_dist', 'mvr2_mean', 'mvr2_var'])
 
 df_path = f"./results_df/summary"
 auxf.ensure_directory_exists(df_path)
@@ -307,3 +307,30 @@ df_path = f"./results_df/best"
 auxf.ensure_directory_exists(df_path)
 best_results_df.to_csv(f"{df_path}/r2_cebra_hyperp_best.csv")
 
+
+# start generating 'total' results df
+
+# load cebra best
+
+cebra_df = pd.read_csv('results_df/best/r2_cebra_hyperp_best.csv')
+umap_df = pd.read_csv('results_df/summary/r2_UMAP_df.csv')
+
+umap_df_filtered = umap_df[umap_df['mvr2_mean'] == umap_df['mvr2_mean'].max()]
+
+cebra_b = cebra_df[cebra_df['cebra_modal'] == 'cebra_b']
+cebra_h = cebra_df[cebra_df['cebra_modal'] == 'cebra_h']
+cebra_t = cebra_df[cebra_df['cebra_modal'] == 'cebra_t']
+
+
+all_dimred_results = [
+    [cebra_b['cebra_modal'].values[0], cebra_b['mvr2_mean'].values[0], cebra_b['mvr2_var'].values[0]],
+    [cebra_h['cebra_modal'].values[0], cebra_h['mvr2_mean'].values[0], cebra_h['mvr2_var'].values[0]],
+    [cebra_t['cebra_modal'].values[0], cebra_t['mvr2_mean'].values[0], cebra_t['mvr2_var'].values[0]],
+    ["UMAP", umap_df_filtered['mvr2_mean'].values[0], umap_df_filtered['mvr2_var'].values[0]]
+]
+
+results_path = './results_df/final'
+auxf.ensure_directory_exists(results_path)
+
+all_dimred_results_df = pd.DataFrame(all_dimred_results, columns = ['dimred', 'mvr2_mean', 'mvr2_var'])
+all_dimred_results_df.to_csv(f"{results_path}/all_dimred_results.csv")
