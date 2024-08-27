@@ -349,6 +349,9 @@ all_dimred_results_df.to_csv(f"{results_path}/validation_all_dimred_results.csv"
 # ------------- get training and testing results for the best hyperparams found using validation ------------- #
 
 
+# CEBRA
+
+test_r2_results = []
 
 
 cebra_best_df = pd.read_csv('results_df/best_validation/r2_cebra_hyperp_best.csv')
@@ -398,5 +401,109 @@ for cebra_modal in cebra_modal_list:
         pred_d1 = trained_MLP.predict(emg_embedding_)
         np.save(f"{pred_path}/{cebra_model_ID}", pred_d1)
 
+        r2_list = calcRsq(
+        user = user, 
+        dimred_type = cebra_modal, 
+        dimredID = dimred_ID, 
+        dataset = dataset)
+    
+        r2_list.append(user)
+        r2_list.append(dimred_type)
+
+        test_r2_results.append(r2_list)
 
 
+
+
+
+# UMAP
+
+umap_df = pd.read_csv('results_df/best_validation/r2_umap_hyperp_best.csv')
+
+n_neighbors = umap_df['n_neighbors'].values[0]
+min_dist = umap_df['min_dist'].values[0]
+
+dimred_type = "UMAP"
+dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+
+MLP_dir = f'./trained_MLP/user{user}/{dimred_type}'
+MLP_path = f"{MLP_dir}/{dimred_ID}.pkl"
+
+trained_MLP = joblib.load(MLP_path)
+
+dataset = 3
+
+
+for user in user_list:
+
+    emg_embedding_d3 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+    glove_d3 = auxf.getProcessedData(user = user,
+                                        dataset=dataset, 
+                                        mode = 'glove')
+
+    pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+    auxf.ensure_directory_exists(pred_path)
+
+    pred_d3 = trained_MLP.predict(emg_embedding_d3)
+    np.save(f"{pred_path}/{dimred_ID}.npy", pred_d3)
+
+    r2_list = calcRsq(
+        user = user, 
+        dimred_type =  'UMAP', 
+        dimredID = dimred_ID, 
+        dataset = dataset)
+    
+    r2_list.append(user)
+    r2_list.append(dimred_type)
+    
+    test_r2_results.append(r2_list)
+
+
+
+
+# PCA 
+
+dimred_type = "PCA"
+dimred_ID = f"{dimred_type}"
+
+MLP_dir = f'./trained_MLP/user{user}/{dimred_type}'
+MLP_path = f"{MLP_dir}/{dimred_ID}.pkl"
+
+trained_MLP = joblib.load(MLP_path)
+
+dataset = 3
+
+for user in user_list:
+
+    emg_embedding_d3 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+    glove_d3 = auxf.getProcessedData(user = user,
+                                        dataset=dataset, 
+                                        mode = 'glove')
+
+    pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+    auxf.ensure_directory_exists(pred_path)
+
+    pred_d3 = trained_MLP.predict(emg_embedding_d3)
+    np.save(f"{pred_path}/{dimred_ID}.npy", pred_d3)
+
+    r2_list = calcRsq(
+        user = user, 
+        dimred_type = 'PCA', 
+        dimredID = dimred_ID, 
+        dataset = dataset)
+    
+    r2_list.append(user)
+    r2_list.append(dimred_type)
+    
+    test_r2_results.append(r2_list)
+
+
+
+
+# save all TEST results
+
+test_r2_results_df = pd.DataFrame(test_r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dimred_type'])
+test_results_path = './results_df/test_results'
+auxf.ensure_directory_exists(test_results_path)
+
+test_r2_results_df.to_csv(f"{test_results_path}/cebra_test_results.csv")
