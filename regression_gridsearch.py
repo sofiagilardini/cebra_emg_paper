@@ -307,7 +307,7 @@ def runEmbeddings_PCA(user: int):
 
 # ---- GLOBAL ------- #
 
-user_list = np.arange(9,13)
+user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
 MLP_struct = (100, 120, 100) # ? 
 iters_MLP = 5 # ?
@@ -337,36 +337,36 @@ time_offset_dict = {
 }
 
 
-# for user in user_list:
-#     for model_arch in model_arch_list:
-#         for cebra_modal in cebra_modal_list:
-#             for min_temp_val in min_temp_list:
+for user in user_list:
+    for model_arch in model_arch_list:
+        for cebra_modal in cebra_modal_list:
+            for min_temp_val in min_temp_list:
 
-#                 offset_list = time_offset_dict[model_arch]
+                offset_list = time_offset_dict[model_arch]
 
-#                 for time_offset_val in offset_list:
+                for time_offset_val in offset_list:
 
-#                     dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+                    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
 
-#                     runCebraTraining(user = user, 
-#                                      model_arch=model_arch, 
-#                                      cebra_modal=cebra_modal, 
-#                                      min_temp_val=min_temp_val, 
-#                                      time_offset_val=time_offset_val)
+                    runCebraTraining(user = user, 
+                                     model_arch=model_arch, 
+                                     cebra_modal=cebra_modal, 
+                                     min_temp_val=min_temp_val, 
+                                     time_offset_val=time_offset_val)
 
-#                     runEmbeddings_CEBRA(user = user, 
-#                                         model_arch = model_arch, 
-#                                         cebra_modal = cebra_modal, 
-#                                         min_temp_val = min_temp_val,
-#                                         time_offset_val=time_offset_val)
+                    runEmbeddings_CEBRA(user = user, 
+                                        model_arch = model_arch, 
+                                        cebra_modal = cebra_modal, 
+                                        min_temp_val = min_temp_val,
+                                        time_offset_val=time_offset_val)
                     
-#                     RunPredictions_CEBRA(user = user,
-#                                          cebra_modal=cebra_modal, 
-#                                          model_arch=model_arch, 
-#                                          min_temp_val=min_temp_val, 
-#                                          time_offset_val=time_offset_val)
+                    RunPredictions_CEBRA(user = user,
+                                         cebra_modal=cebra_modal, 
+                                         model_arch=model_arch, 
+                                         min_temp_val=min_temp_val, 
+                                         time_offset_val=time_offset_val)
 
-# # ------- CEBRA END ------- #
+# ------- CEBRA END ------- #
 
 # # ----- UMAP -------- #
 
@@ -375,26 +375,26 @@ n_neighbours_list = [5, 10, 20, 100, 200]
 min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
 
 
+# for user in user_list:
+#     for n_neighbors in n_neighbours_list:
+#         for min_dist in min_dist_list:
+#             dimred_type = "UMAP"
+#             dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
-for user in user_list:
-    for n_neighbors in n_neighbours_list:
-        for min_dist in min_dist_list:
-            dimred_type = "UMAP"
-            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
-
-            runEmbeddings_UMAP(user=user, 
-                            n_neighbors=n_neighbors, 
-                            min_dist=min_dist)
-            RunPredictions_(dimred_type = dimred_type, 
-                            dimred_ID=dimred_ID, 
-                            user = user)
+#             runEmbeddings_UMAP(user=user, 
+#                             n_neighbors=n_neighbors, 
+#                             min_dist=min_dist)
+#             RunPredictions_(dimred_type = dimred_type, 
+#                             dimred_ID=dimred_ID, 
+#                             user = user)
             
-# # ----- UMAP END ------- #
+# # # ----- UMAP END ------- #
 
 
 # ---- PCA ------
 
 for user in user_list:
+    print("beginning PCA")
     dimred_type = "PCA"
     dimred_ID = dimred_type
 
@@ -402,5 +402,8 @@ for user in user_list:
     RunPredictions_(dimred_type = dimred_type, 
                     dimred_ID=dimred_ID, 
                     user = user)
+    
+    print("end PCA")
+
     
 # ----- END PCA ------ #
