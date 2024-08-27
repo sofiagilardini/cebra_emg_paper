@@ -52,6 +52,7 @@ def runCebraTraining(
                             verbose=True,
                             conditional= condit,
                             time_offsets = time_offset_val,
+                            temperature_mode = 'auto',
                             min_temperature = min_temp_val, 
                             hybrid = hybrid_bool)
 
@@ -120,7 +121,8 @@ def RunPredictions_CEBRA(
     reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
         max_iter = iters_MLP,
         shuffle = False,
-        verbose = True)
+        verbose = True, 
+        tol = 0.000001)
 
     # fit MLP
     reg_MLP.fit(emg_embedding_d1, glove_d1)  
@@ -151,9 +153,7 @@ def RunPredictions_CEBRA(
 def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
 
     """
-    dimred_type = ['PCA', 'UMAP', 'Autoencoder']
-
-    dimred_ID e.g : 'offset5-model_0_1'
+    dimred_type = ['PCA', 'UMAP', 'autoencoder', 'no_dimred']
     
     """
 
@@ -168,11 +168,24 @@ def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
         shuffle = False,
         verbose = True)
     
-    dataset = 1
-    emg_embedding_d1 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
-    glove_d1 = auxf.getProcessedData(user = user,
-                                     dataset=dataset, 
-                                     mode = 'glove')
+    if dimred_type != 'no_dimred':
+
+        dataset = 1
+        emg_embedding_d1 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+        glove_d1 = auxf.getProcessedData(user = user,
+                                        dataset=dataset, 
+                                        mode = 'glove')
+        
+    elif dimred_type == 'no_dimred':
+
+        dataset = 1
+        emg_embedding_d1 = auxf.getProcessedData(user=user, 
+                                                 dataset=dataset, 
+                                                 mode = 'emg')
+        glove_d1 = auxf.getProcessedData(user = user,
+                                        dataset=dataset, 
+                                        mode = 'glove')
+
 
     # fit MLP
     reg_MLP.fit(emg_embedding_d1, glove_d1)  
@@ -190,14 +203,22 @@ def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
 
     # now we have the trained MLP - we can make predictions for dataset1, dataset2 
 
-    dataset = 2
-    emg_embedding_d2 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
+    for dataset in dataset_valtest:
 
-    pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
-    auxf.ensure_directory_exists(pred_path)
+        if dimred_type != 'no_dimred':
+            emg_embedding_d2 = np.load(f"./embeddings/user{user}/{dimred_type}/dataset{dataset}/{dimred_ID}.npy")
 
-    pred_d2 = trained_MLP.predict(emg_embedding_d2)
-    np.save(f"{pred_path}/{dimred_ID}.npy", pred_d2)
+        elif dimred_type == 'no_dimred':
+            emg_embedding_d2 = auxf.getProcessedData(user=user, 
+                                            dataset=dataset, 
+                                            mode = 'emg')
+
+
+        pred_path = f"./MLP_pred/user{user}/{dimred_type}/dataset{dataset}"
+        auxf.ensure_directory_exists(pred_path)
+
+        pred_d2 = trained_MLP.predict(emg_embedding_d2)
+        np.save(f"{pred_path}/{dimred_ID}.npy", pred_d2)
 
 
 
@@ -247,21 +268,14 @@ def runEmbeddings_UMAP(user: int,
 
     # transform dataset 2 and save
 
-    dataset = 2
-    emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+    for dataset in dataset_valtest:
+        emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
 
-    embedding = umap_model.transform(emg_d2)
-    embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
-    auxf.ensure_directory_exists(embedding_dir)
+        embedding = umap_model.transform(emg_d2)
+        embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+        auxf.ensure_directory_exists(embedding_dir)
 
-    np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
-
-    # length_ = np.arange(0, len(glove_d1))
-
-    # fig = plt.figure()
-    # ax = fig.add_subplot(projection='3d')
-    # ax.scatter(embedding_d1[:, 0], embedding_d1[:, 1], embedding_d1[:, 2], cmap= "plasma", c = length_)
-    # plt.show()
+        np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
 
 
 def runEmbeddings_PCA(user: int): 
@@ -293,28 +307,69 @@ def runEmbeddings_PCA(user: int):
 
     # transform dataset 2 and save
 
-    dataset = 2
-    emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+    for dataset in dataset_valtest:
+        emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
 
-    embedding = pca_model.transform(emg_d2)
+        embedding = pca_model.transform(emg_d2)
+        embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+        auxf.ensure_directory_exists(embedding_dir)
+
+        np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
+
+
+def RunEmbeddings_AutoEncoder(user: int):
+        
+    dimred_type = 'autoencoder'
+    dimred_ID = f'{dimred_type}'
+
+    # load user's emg data for dataset 1 to train autoencoder
+
+    dataset = 1
+    emg_d1 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+    # fit UMAP on emg_d1
+
+    ae_model = AutoEncoderNet(
+        AutoEncoder_1,
+        module__num_units=3,
+        module__input_size=32,
+        lr=0.0001,
+        max_epochs=ae_epochs,
+    )
+
+    ae_model.fit(emg_d1.astype(np.float32), emg_d1.astype(np.float32)) # it needs two inputs but it ignores the second
+
+    _, embedding = ae_model.forward(emg_d1.astype(np.float32))
+
     embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
     auxf.ensure_directory_exists(embedding_dir)
 
     np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
 
+    # transform dataset 2 and 3
 
+    for dataset in dataset_valtest:
+
+        emg_d2 = auxf.getProcessedData(user = user, dataset = dataset, mode = 'emg')
+        _, embedding = ae_model.forward(emg_d2.astype(np.float32))
+
+        embedding_dir = f'./embeddings/user{user}/{dimred_type}/dataset{dataset}'
+        auxf.ensure_directory_exists(embedding_dir)
+
+        np.save(f"{embedding_dir}/{dimred_ID}.npy", embedding)
 
 
 # ---- GLOBAL ------- #
 
 user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
-MLP_struct = (100, 120, 100) # ? 
-iters_MLP = 5 # ?
-iters_CEBRA = 2
+MLP_struct = (100, 100) 
+iters_MLP = 2
+iters_CEBRA = 1
 dataset_trainval = [1, 2]
+dataset_valtest = [2, 3]
 size_val = 128
 stride_val = 50
+ae_epochs = 2 #?
 
 # # ------ DATA PROCESSING ----- # 
 
@@ -327,7 +382,7 @@ stride_val = 50
 # ------- CEBRA ------- #
 
 model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-min_temp_list = [0, 0.2, 0.4, 0.6, 0.8]
+min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
 
 time_offset_dict = {
@@ -375,35 +430,58 @@ n_neighbours_list = [5, 10, 20, 100, 200]
 min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
 
 
-# for user in user_list:
-#     for n_neighbors in n_neighbours_list:
-#         for min_dist in min_dist_list:
-#             dimred_type = "UMAP"
-#             dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
+for user in user_list:
+    for n_neighbors in n_neighbours_list:
+        for min_dist in min_dist_list:
+            dimred_type = "UMAP"
+            dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
-#             runEmbeddings_UMAP(user=user, 
-#                             n_neighbors=n_neighbors, 
-#                             min_dist=min_dist)
-#             RunPredictions_(dimred_type = dimred_type, 
-#                             dimred_ID=dimred_ID, 
-#                             user = user)
+            # you will not have to rerun the embeddings once they're saved 
+            # runEmbeddings_UMAP(user=user, 
+            #                 n_neighbors=n_neighbors, 
+            #                 min_dist=min_dist)
+            RunPredictions_(dimred_type = dimred_type, 
+                            dimred_ID=dimred_ID, 
+                            user = user)
             
-# # # ----- UMAP END ------- #
+# # ----- UMAP END ------- #
 
 
 # ---- PCA ------
 
 for user in user_list:
-    print("beginning PCA")
     dimred_type = "PCA"
     dimred_ID = dimred_type
 
-    runEmbeddings_PCA(user=user)
+    # runEmbeddings_PCA(user=user)
     RunPredictions_(dimred_type = dimred_type, 
                     dimred_ID=dimred_ID, 
                     user = user)
     
-    print("end PCA")
-
     
 # ----- END PCA ------ #
+
+
+
+
+# --------- no dimred ------------ # 
+
+for user in user_list:
+    dimred_type = "no_dimred"
+    dimred_ID = dimred_type
+
+    RunPredictions_(dimred_type = dimred_type, 
+                    dimred_ID=dimred_ID, 
+                    user = user)
+
+
+#------- autoencoder ----------- # 
+
+for user in user_list:
+    dimred_type = "autoencoder"
+    dimred_ID = dimred_type
+
+    RunEmbeddings_AutoEncoder(user = user)
+    RunPredictions_(dimred_type = dimred_type, 
+                    dimred_ID=dimred_ID, 
+                    user = user)

@@ -13,7 +13,7 @@ import csv
 
 
 
-# import regression_gridsearch as reg_grid
+import regression_gridsearch 
 
 
 """
@@ -66,12 +66,12 @@ def calcRsq(
 
 user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
-MLP_struct = (100, 120, 100) # ? 
-iters_MLP = 5 # ?
-iters_CEBRA = 2
+MLP_struct = (100, 100, 100) # ? 
+# iters_MLP = 200
+# iters_CEBRA = 10000
 dataset_trainval = [1, 2]
-size_val = 128
-stride_val = 50
+# size_val = 128
+# stride_val = 50
 
 
 # ------- CEBRA ------- #
@@ -108,6 +108,7 @@ pca_results_df = pd.DataFrame(pca_r2_results , columns = ['mvr2', 'DoA1', 'DoA2'
 pca_results_path = './results_df/all'
 auxf.ensure_directory_exists(pca_results_path)
 pca_results_df.to_csv(f"{pca_results_path}/pca_results_all.csv", index = False)
+
 
 r2_results = []
 
@@ -207,6 +208,59 @@ summary_df = pd.DataFrame(hyperparam_results, columns=['n_neighbors', 'min_dist'
 df_path = f"./results_df/summary_validation"
 auxf.ensure_directory_exists(df_path)
 summary_df.to_csv(f"{df_path}/r2_{dimred_type}_df.csv", index = False)
+
+
+# ------------ Autoencoder ---------------- # 
+
+
+ae_r2_results = []
+
+for user in user_list: 
+    for dataset in dataset_trainval:
+
+        r2_list_temp = [] 
+
+        r2_list_temp = calcRsq(user = user,
+                dimred_type='autoencoder', 
+                dimredID='autoencoder', 
+                dataset = dataset)
+        
+        r2_list_temp.append(user)
+        r2_list_temp.append(dataset)
+    
+        ae_r2_results.append(r2_list_temp)
+
+ae_results_df = pd.DataFrame(ae_r2_results , columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dataset'])
+ae_results_path = './results_df/all'
+auxf.ensure_directory_exists(ae_results_path)
+ae_results_df.to_csv(f"{ae_results_path}/autoencoder_results_all.csv", index = False)
+
+# -------------------------------------------------------- #
+
+# ------------ no_dimred ---------------- # 
+
+
+nodimred_r2_results = []
+
+for user in user_list: 
+    for dataset in dataset_trainval:
+
+        r2_list_temp = [] 
+
+        r2_list_temp = calcRsq(user = user,
+                dimred_type='no_dimred', 
+                dimredID='no_dimred', 
+                dataset = dataset)
+        
+        r2_list_temp.append(user)
+        r2_list_temp.append(dataset)
+    
+        nodimred_r2_results.append(r2_list_temp)
+
+nodimred_results_df = pd.DataFrame(nodimred_r2_results , columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dataset'])
+nodimred_results_path = './results_df/all'
+auxf.ensure_directory_exists(ae_results_path)
+nodimred_results_df.to_csv(f"{ae_results_path}/no_dimred_results_all.csv", index = False)
 
 # -------------------------------------------------------- #
 
@@ -364,7 +418,7 @@ for cebra_modal in cebra_modal_list:
     min_temp_val = cebra_df_filtered['min_temp_val'].values[0]
     time_offset_val = cebra_df_filtered['time_offset_val'].values[0]
 
-    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+    dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
 
     for user in user_list:
 
@@ -408,7 +462,7 @@ for cebra_modal in cebra_modal_list:
         dataset = dataset)
     
         r2_list.append(user)
-        r2_list.append(dimred_type)
+        r2_list.append(cebra_modal)
 
         test_r2_results.append(r2_list)
 
@@ -506,4 +560,7 @@ test_r2_results_df = pd.DataFrame(test_r2_results, columns = ['mvr2', 'DoA1', 'D
 test_results_path = './results_df/test_results'
 auxf.ensure_directory_exists(test_results_path)
 
-test_r2_results_df.to_csv(f"{test_results_path}/cebra_test_results.csv")
+test_r2_results_df.to_csv(f"{test_results_path}/test_results.csv", index = False)
+
+
+# I am now going to want a df that has all the results I need aggregated with Train, Val, Test so that I can plot the results
