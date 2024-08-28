@@ -76,16 +76,6 @@ dataset_trainval = [1, 2]
 
 # ------- CEBRA ------- #
 
-# model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-# min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
-# cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
-
-# time_offset_dict = {
-#     "offset5-model" : [1, 2, 4], 
-#     "offset10-model" : [2, 4, 8],
-#     "offset36-model" : [2, 10, 20, 32]
-# }
-
 model_arch_list = ['offset10-model', 'offset36-model']
 min_temp_list = [0.05, 0.5, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
@@ -109,8 +99,10 @@ for user in user_list:
                 dimredID='PCA', 
                 dataset = dataset)
         
-        r2_list_temp.append(user)
-        r2_list_temp.append(dataset)
+        # r2_list_temp.append(user)
+        # r2_list_temp.append(dataset)
+
+        r2_list_temp.extend([user, dataset])
     
         pca_r2_results.append(r2_list_temp)
 
@@ -134,18 +126,17 @@ for dataset in dataset_trainval:
 
                         dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
                         doa_list = calcRsq(user = user, dimred_type= cebra_modal, dimredID=dimred_ID, dataset=dataset)
-                        doa_list.append(user)
-                        doa_list.append(dimred_ID)
-                        doa_list.append(cebra_modal)
-                        doa_list.append(model_arch)
-                        doa_list.append(min_temp_val)
-                        doa_list.append(time_offset_val)
-                        doa_list.append(dataset)
+                        # doa_list.append(user)
+                        # doa_list.append(dimred_ID)
+                        # doa_list.append(cebra_modal)
+                        # doa_list.append(model_arch)
+                        # doa_list.append(min_temp_val)
+                        # doa_list.append(time_offset_val)
+                        # doa_list.append(dataset)
 
+                        doa_list.extend([user, dimred_ID, cebra_modal, model_arch, min_temp_val, time_offset_val, dataset])
 
                         r2_results.append(doa_list)
-
-        # breakpoint()
 
 reg_results_df = pd.DataFrame(r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dimred_ID', 'cebra_modal', 'model_arch', 'min_temp_val', 'time_offset_val', 'dataset'])
 
@@ -171,9 +162,11 @@ for dataset in dataset_trainval:
                 dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
                 doa_list = calcRsq(user = user, dimred_type= dimred_type, dimredID=dimred_ID, dataset=dataset)
-                doa_list.append(user)
-                doa_list.append(dimred_ID)
-                doa_list.append(dataset)
+                # doa_list.append(user)
+                # doa_list.append(dimred_ID)
+                # doa_list.append(dataset)
+
+                doa_list.extend([user, dimred_ID, dataset])
 
 
                 r2_results.append(doa_list)
@@ -208,6 +201,7 @@ for n_neighbors in n_neighbours_list:
         mv_rsq_var = df_dataset2['mvr2'][df_dataset2['dimred_ID'] == dimred_ID].var()
 
         hyperparam_temp_list = [
+            dimred_ID,
             n_neighbors, 
             min_dist, 
             mv_rsq_mean, 
@@ -216,7 +210,7 @@ for n_neighbors in n_neighbours_list:
 
         hyperparam_results.append(hyperparam_temp_list)
 
-summary_df = pd.DataFrame(hyperparam_results, columns=['n_neighbors', 'min_dist', 'mvr2_mean', 'mvr2_var'])
+summary_df = pd.DataFrame(hyperparam_results, columns=['dimred_ID', 'n_neighbors', 'min_dist', 'mvr2_mean', 'mvr2_var'])
 
 df_path = f"./results_df/summary_validation"
 auxf.ensure_directory_exists(df_path)
@@ -238,8 +232,10 @@ for user in user_list:
                 dimredID='autoencoder', 
                 dataset = dataset)
         
-        r2_list_temp.append(user)
-        r2_list_temp.append(dataset)
+        # r2_list_temp.append(user)
+        # r2_list_temp.append(dataset)
+
+        r2_list_temp.extend([user, dataset])
     
         ae_r2_results.append(r2_list_temp)
 
@@ -265,9 +261,11 @@ for user in user_list:
                 dimredID='no_dimred', 
                 dataset = dataset)
         
-        r2_list_temp.append(user)
-        r2_list_temp.append(dataset)
+        # r2_list_temp.append(user)
+        # r2_list_temp.append(dataset)
     
+        r2_list_temp.extend([user, dataset])
+
         nodimred_r2_results.append(r2_list_temp)
 
 nodimred_results_df = pd.DataFrame(nodimred_r2_results , columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dataset'])
@@ -334,22 +332,32 @@ for cebra_modal in cebra_modal_list:
 
     best_hyperparms_ind = filtered_results['mvr2_mean'].idxmax()
 
+    best_values = filtered_results.loc[best_hyperparms_ind]
+
+    # best_cebra_results_temp = [
+    #     cebra_modal, 
+    #     filtered_results['dimred_ID'][best_hyperparms_ind],
+    #     filtered_results['model_arch'][best_hyperparms_ind],
+    #     filtered_results['min_temp_val'][best_hyperparms_ind],
+    #     filtered_results['time_offset_val'][best_hyperparms_ind],
+    #     filtered_results['mvr2_mean'][best_hyperparms_ind],
+    #     filtered_results['mvr2_var'][best_hyperparms_ind],
+    # ]
+
     best_cebra_results_temp = [
-        cebra_modal, 
-        filtered_results['model_arch'][best_hyperparms_ind],
-        filtered_results['min_temp_val'][best_hyperparms_ind],
-        filtered_results['time_offset_val'][best_hyperparms_ind],
-        filtered_results['mvr2_mean'][best_hyperparms_ind],
-        filtered_results['mvr2_var'][best_hyperparms_ind],
-    ]
-
-    print(best_hyperparms_ind, filtered_results.loc[best_hyperparms_ind])
-
+    cebra_modal, 
+    best_values['dimred_ID'],
+    best_values['model_arch'],
+    best_values['min_temp_val'],
+    best_values['time_offset_val'],
+    best_values['mvr2_mean'],
+    best_values['mvr2_var'],
+]
 
     best_cebra_results.append(best_cebra_results_temp)
 
 
-best_results_df = pd.DataFrame(best_cebra_results, columns = ['cebra_modal', 'model_arch', 'min_temp_val', 'time_offset_val', 'mvr2_mean', 'mvr2_var'])
+best_results_df = pd.DataFrame(best_cebra_results, columns = ['cebra_modal', 'dimred_ID', 'model_arch', 'min_temp_val', 'time_offset_val', 'mvr2_mean', 'mvr2_var'])
 
 df_path = f"./results_df/best_validation"
 auxf.ensure_directory_exists(df_path)
@@ -365,16 +373,17 @@ max_mvr2_mean_indx = umap_df['mvr2_mean'].idxmax()
 umap_best_hyperp = []
 
 umap_best_hyp_temp = [
-    umap_df['mvr2_mean'][max_mvr2_mean_indx],
-    umap_df['mvr2_var'][max_mvr2_mean_indx],
+    umap_df['dimred_ID'][max_mvr2_mean_indx],
     umap_df['n_neighbors'][max_mvr2_mean_indx],
-    umap_df['min_dist'][max_mvr2_mean_indx]
+    umap_df['min_dist'][max_mvr2_mean_indx],
+    umap_df['mvr2_mean'][max_mvr2_mean_indx],
+    umap_df['mvr2_var'][max_mvr2_mean_indx]
 ]
 
 umap_best_hyperp.append(umap_best_hyp_temp)
 
 
-umap_best_hyp_df = pd.DataFrame(umap_best_hyperp, columns = ['mvr2_mean', 'mvr2_var', 'n_neighbors', 'min_dist'])
+umap_best_hyp_df = pd.DataFrame(umap_best_hyperp, columns = ['dimred_ID', 'n_neighbors', 'min_dist', 'mvr2_mean', 'mvr2_var'])
 
 
 df_path = f"./results_df/best_validation"
@@ -442,6 +451,8 @@ for cebra_modal in cebra_modal_list:
 
     dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
 
+    # trainval
+
     for user in user_list:
 
         dataset = 3
@@ -484,8 +495,9 @@ for cebra_modal in cebra_modal_list:
         dataset = dataset)
     
         r2_list.append(user)
+        r2_list.append(dataset)
         r2_list.append(cebra_modal)
-
+        
         test_r2_results.append(r2_list)
 
 
@@ -527,9 +539,12 @@ for user in user_list:
         dimredID = dimred_ID, 
         dataset = dataset)
     
-    r2_list.append(user)
-    r2_list.append(dimred_type)
+    # r2_list.append(user)
+    # r2_list.append(dataset)
+    # r2_list.append(dimred_type)
     
+    r2_list.extend([user, dataset, dimred_type])
+
     test_r2_results.append(r2_list)
 
 
@@ -566,9 +581,12 @@ for user in user_list:
         dimredID = dimred_ID, 
         dataset = dataset)
     
-    r2_list.append(user)
-    r2_list.append(dimred_type)
-    
+    # r2_list.append(user)
+    # r2_list.append(dataset)
+    # r2_list.append(dimred_type)
+
+    r2_list.extend([user, dataset, dimred_type])
+
     test_r2_results.append(r2_list)
 
 
@@ -588,6 +606,7 @@ for user in user_list:
         dataset = dataset)
     
     r2_list.append(user)
+    r2_list.append(dataset)
     r2_list.append(dimred_type)
     
     test_r2_results.append(r2_list)
@@ -610,6 +629,7 @@ for user in user_list:
         dataset = dataset)
     
     r2_list.append(user)
+    r2_list.append(dataset)
     r2_list.append(dimred_type)
     
     test_r2_results.append(r2_list)
@@ -617,10 +637,44 @@ for user in user_list:
 
 # save all TEST results
 
-test_r2_results_df = pd.DataFrame(test_r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dimred_type'])
+test_r2_results_df = pd.DataFrame(test_r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'DoA3', 'DoA4', 'DoA5', 'user', 'dataset', 'dimred_type'])
 test_results_path = './results_df/test_results'
 auxf.ensure_directory_exists(test_results_path)
 
 test_r2_results_df.to_csv(f"{test_results_path}/test_results.csv", index = False)
 
 
+# concatenate the test_results with all results to get a df with train val and test.
+
+pca_df = pd.read_csv('./results_df/all/pca_results_all.csv')
+pca_df['dimred_type'] = 'PCA'
+ae_df = pd.read_csv('./results_df/all/autoencoder_results_all.csv')
+ae_df['dimred_type'] = 'autoencoder'
+no_dimred_df = pd.read_csv('./results_df/all/no_dimred_results_all.csv')
+no_dimred_df['dimred_type'] = 'no_dimred'
+
+
+cebra_hyp_df = pd.read_csv('./results_df/best_validation/r2_cebra_hyperp_best.csv')
+umap_hyp_df = pd.read_csv('./results_df/best_validation/r2_umap_hyperp_best.csv')
+
+hyp_ID = {
+    'cebra_b' : cebra_hyp_df['dimred_ID'][cebra_hyp_df['cebra_modal'] == 'cebra_b'].values[0], 
+    'cebra_h' : cebra_hyp_df['dimred_ID'][cebra_hyp_df['cebra_modal'] == 'cebra_h'].values[0],
+    'cebra_t' : cebra_hyp_df['dimred_ID'][cebra_hyp_df['cebra_modal'] == 'cebra_t'].values[0],
+    'UMAP' : umap_hyp_df['dimred_ID'].values[0]
+}
+
+
+cebra_trainval = pd.read_csv('./results_df/all/r2_all_cebra_df.csv')
+cebra_trainval_filt = cebra_trainval.drop(columns = ['dimred_ID' , 'model_arch' , 'min_temp_val', 'time_offset_val'])
+
+trainvaltest_df = pd.concat([test_r2_results_df, pca_df, ae_df, no_dimred_df])
+
+trainvaltest_df = pd.concat([trainvaltest_df, 
+                             cebra_trainval_filt[cebra_trainval['dimred_ID'] == hyp_ID['cebra_b']],
+                             cebra_trainval_filt[cebra_trainval['dimred_ID'] == hyp_ID['cebra_h']],
+                             cebra_trainval_filt[cebra_trainval['dimred_ID'] == hyp_ID['cebra_t']]               
+                             ])
+
+
+trainvaltest_df.to_csv("./results_df/trainvaltest.csv", index = False)
