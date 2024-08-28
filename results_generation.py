@@ -17,8 +17,8 @@ import csv
 
 
 """
-The goal of this script is to use the predictions for the DoA that has already been generated (for CEBRA, PCA, 
-UMAP, Autoencoder and raw) and calculate the r_sq values. 
+This script uses the predictions for the DoA that has already been generated (for CEBRA, PCA, 
+UMAP, Autoencoder and raw) and calculate the r_sq values and produce the necessary df for results figures. 
 
 """
 
@@ -67,12 +67,7 @@ def calcRsq(
 user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
 MLP_struct = (100, 100, 100) # ? 
-# iters_MLP = 200
-# iters_CEBRA = 10000
 dataset_trainval = [1, 2]
-# size_val = 128
-# stride_val = 50
-
 
 # ------- CEBRA ------- #
 
@@ -98,9 +93,6 @@ for user in user_list:
                 dimred_type='PCA', 
                 dimredID='PCA', 
                 dataset = dataset)
-        
-        # r2_list_temp.append(user)
-        # r2_list_temp.append(dataset)
 
         r2_list_temp.extend([user, dataset])
     
@@ -126,14 +118,6 @@ for dataset in dataset_trainval:
 
                         dimred_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
                         doa_list = calcRsq(user = user, dimred_type= cebra_modal, dimredID=dimred_ID, dataset=dataset)
-                        # doa_list.append(user)
-                        # doa_list.append(dimred_ID)
-                        # doa_list.append(cebra_modal)
-                        # doa_list.append(model_arch)
-                        # doa_list.append(min_temp_val)
-                        # doa_list.append(time_offset_val)
-                        # doa_list.append(dataset)
-
                         doa_list.extend([user, dimred_ID, cebra_modal, model_arch, min_temp_val, time_offset_val, dataset])
 
                         r2_results.append(doa_list)
@@ -143,11 +127,6 @@ reg_results_df = pd.DataFrame(r2_results, columns = ['mvr2', 'DoA1', 'DoA2', 'Do
 df_path = f"./results_df/all"
 auxf.ensure_directory_exists(df_path)
 reg_results_df.to_csv(f"{df_path}/r2_all_cebra_df.csv", index = False)
-
-
-
-# n_neighbours_list = [5, 10, 20, 100, 200]
-# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
 
 n_neighbours_list = [5, 200]
 min_dist_list = [0.1, 0.8]
@@ -162,10 +141,6 @@ for dataset in dataset_trainval:
                 dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
                 doa_list = calcRsq(user = user, dimred_type= dimred_type, dimredID=dimred_ID, dataset=dataset)
-                # doa_list.append(user)
-                # doa_list.append(dimred_ID)
-                # doa_list.append(dataset)
-
                 doa_list.extend([user, dimred_ID, dataset])
 
 
@@ -178,10 +153,7 @@ auxf.ensure_directory_exists(df_path)
 reg_results_df.to_csv(f"{df_path}/r2_{dimred_type}_df.csv", index = False)
 
 
-
-# create UMAP results heatmap for n_neighbours and min_dist: for dataset 2!
-
-    # create a new 'summary' df using the hyperparams
+# hyperparam analysis for UMAP
 
 hyperparam_results = []
 
@@ -232,9 +204,6 @@ for user in user_list:
                 dimredID='autoencoder', 
                 dataset = dataset)
         
-        # r2_list_temp.append(user)
-        # r2_list_temp.append(dataset)
-
         r2_list_temp.extend([user, dataset])
     
         ae_r2_results.append(r2_list_temp)
@@ -260,10 +229,7 @@ for user in user_list:
                 dimred_type='no_dimred', 
                 dimredID='no_dimred', 
                 dataset = dataset)
-        
-        # r2_list_temp.append(user)
-        # r2_list_temp.append(dataset)
-    
+
         r2_list_temp.extend([user, dataset])
 
         nodimred_r2_results.append(r2_list_temp)
@@ -334,16 +300,6 @@ for cebra_modal in cebra_modal_list:
 
     best_values = filtered_results.loc[best_hyperparms_ind]
 
-    # best_cebra_results_temp = [
-    #     cebra_modal, 
-    #     filtered_results['dimred_ID'][best_hyperparms_ind],
-    #     filtered_results['model_arch'][best_hyperparms_ind],
-    #     filtered_results['min_temp_val'][best_hyperparms_ind],
-    #     filtered_results['time_offset_val'][best_hyperparms_ind],
-    #     filtered_results['mvr2_mean'][best_hyperparms_ind],
-    #     filtered_results['mvr2_var'][best_hyperparms_ind],
-    # ]
-
     best_cebra_results_temp = [
     cebra_modal, 
     best_values['dimred_ID'],
@@ -363,8 +319,7 @@ df_path = f"./results_df/best_validation"
 auxf.ensure_directory_exists(df_path)
 best_results_df.to_csv(f"{df_path}/r2_cebra_hyperp_best.csv", index = False)
 
-# find the best UMAP hyperparams 
-
+# UMAP
 
 umap_df = pd.read_csv('./results_df/summary_validation/r2_UMAP_df.csv')
 
@@ -393,8 +348,7 @@ umap_best_hyp_df.to_csv(f"{df_path}/r2_umap_hyperp_best.csv", index = False)
 
 
 
-
-# start generating 'total' results df - based on performance on dataset 2 (validation)
+# start generating 'total validation' results df - based on performance on dataset 2 (validation)
 
 cebra_df = pd.read_csv('./results_df/best_validation/r2_cebra_hyperp_best.csv')
 umap_df = pd.read_csv('./results_df/summary_validation/r2_UMAP_df.csv')
@@ -539,9 +493,6 @@ for user in user_list:
         dimredID = dimred_ID, 
         dataset = dataset)
     
-    # r2_list.append(user)
-    # r2_list.append(dataset)
-    # r2_list.append(dimred_type)
     
     r2_list.extend([user, dataset, dimred_type])
 
@@ -580,10 +531,6 @@ for user in user_list:
         dimred_type = 'PCA', 
         dimredID = dimred_ID, 
         dataset = dataset)
-    
-    # r2_list.append(user)
-    # r2_list.append(dataset)
-    # r2_list.append(dimred_type)
 
     r2_list.extend([user, dataset, dimred_type])
 
@@ -604,10 +551,9 @@ for user in user_list:
         dimred_type = 'autoencoder', 
         dimredID = dimred_ID, 
         dataset = dataset)
-    
-    r2_list.append(user)
-    r2_list.append(dataset)
-    r2_list.append(dimred_type)
+
+    r2_list.extend([user, dataset, dimred_type])
+
     
     test_r2_results.append(r2_list)
 
@@ -628,10 +574,8 @@ for user in user_list:
         dimredID = dimred_ID, 
         dataset = dataset)
     
-    r2_list.append(user)
-    r2_list.append(dataset)
-    r2_list.append(dimred_type)
-    
+    r2_list.extend([user, dataset, dimred_type])
+
     test_r2_results.append(r2_list)
 
 
