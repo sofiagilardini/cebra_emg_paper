@@ -121,7 +121,7 @@ def RunPredictions_CEBRA(
     reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
         max_iter = iters_MLP,
         shuffle = False,
-        verbose = True, 
+        verbose = False, 
         tol = 0.000001)
 
     # fit MLP
@@ -166,7 +166,7 @@ def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
     reg_MLP = MLPRegressor(hidden_layer_sizes = MLP_struct,
         max_iter = iters_MLP,
         shuffle = False,
-        verbose = True)
+        verbose = False)
     
     if dimred_type != 'no_dimred':
 
@@ -363,13 +363,13 @@ def RunEmbeddings_AutoEncoder(user: int):
 user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
 MLP_struct = (100, 100) 
-iters_MLP = 2
-iters_CEBRA = 1
+iters_MLP = 10
+iters_CEBRA = 10
 dataset_trainval = [1, 2]
 dataset_valtest = [2, 3]
 size_val = 128
 stride_val = 50
-ae_epochs = 2 #?
+ae_epochs = 600 #?
 
 # # ------ DATA PROCESSING ----- # 
 
@@ -381,65 +381,84 @@ ae_epochs = 2 #?
 
 # ------- CEBRA ------- #
 
-model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
+# model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
+# min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
+# cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
+
+model_arch_list = ['offset10-model', 'offset36-model']
+min_temp_list = [0.05, 0.5, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
 
 time_offset_dict = {
-    "offset5-model" : [1, 2, 4], 
-    "offset10-model" : [2, 4, 8],
-    "offset36-model" : [2, 10, 20, 32]
+    "offset5-model" : [2, 4], 
+    "offset10-model" : [4, 8],
+    "offset36-model" : [20, 32]
 }
 
 
-for user in user_list:
-    for model_arch in model_arch_list:
-        for cebra_modal in cebra_modal_list:
-            for min_temp_val in min_temp_list:
+total_cebra = len(model_arch_list) * len(min_temp_list) * len(cebra_modal_list) * 3 * len(user_list)
+cebra_counter = 0
 
-                offset_list = time_offset_dict[model_arch]
+# for user in user_list:
+#     for model_arch in model_arch_list:
+#         for cebra_modal in cebra_modal_list:
+#             for min_temp_val in min_temp_list:
 
-                for time_offset_val in offset_list:
+#                 offset_list = time_offset_dict[model_arch]
 
-                    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+#                 for time_offset_val in offset_list:
 
-                    runCebraTraining(user = user, 
-                                     model_arch=model_arch, 
-                                     cebra_modal=cebra_modal, 
-                                     min_temp_val=min_temp_val, 
-                                     time_offset_val=time_offset_val)
+#                     cebra_counter += 1
 
-                    runEmbeddings_CEBRA(user = user, 
-                                        model_arch = model_arch, 
-                                        cebra_modal = cebra_modal, 
-                                        min_temp_val = min_temp_val,
-                                        time_offset_val=time_offset_val)
+#                     dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+
+#                     print(f'on CEBRA: {(cebra_counter/total_cebra)*100}%')
+
+#                     runCebraTraining(user = user, 
+#                                      model_arch=model_arch, 
+#                                      cebra_modal=cebra_modal, 
+#                                      min_temp_val=min_temp_val, 
+#                                      time_offset_val=time_offset_val)
+
+#                     runEmbeddings_CEBRA(user = user, 
+#                                         model_arch = model_arch, 
+#                                         cebra_modal = cebra_modal, 
+#                                         min_temp_val = min_temp_val,
+#                                         time_offset_val=time_offset_val)
                     
-                    RunPredictions_CEBRA(user = user,
-                                         cebra_modal=cebra_modal, 
-                                         model_arch=model_arch, 
-                                         min_temp_val=min_temp_val, 
-                                         time_offset_val=time_offset_val)
+#                     RunPredictions_CEBRA(user = user,
+#                                          cebra_modal=cebra_modal, 
+#                                          model_arch=model_arch, 
+#                                          min_temp_val=min_temp_val, 
+#                                          time_offset_val=time_offset_val)
 
-# ------- CEBRA END ------- #
+# # ------- CEBRA END ------- #
 
-# # ----- UMAP -------- #
+# ----- UMAP -------- #
 
 
-n_neighbours_list = [5, 10, 20, 100, 200]
-min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+n_neighbours_list = [5, 200]
+min_dist_list = [0.1, 0.8]
+
+UMAP_total = len(n_neighbours_list) * len(min_dist_list)*len(user_list)
+UMAP_counter = 0
 
 
 for user in user_list:
     for n_neighbors in n_neighbours_list:
         for min_dist in min_dist_list:
+            UMAP_counter+= 1
+
             dimred_type = "UMAP"
             dimred_ID = f"{dimred_type}_{n_neighbors}_{min_dist}"
 
+            print(f'on UMAP: {(UMAP_counter/UMAP_total)*100}%')
+
+
             # you will not have to rerun the embeddings once they're saved 
-            # runEmbeddings_UMAP(user=user, 
-            #                 n_neighbors=n_neighbors, 
-            #                 min_dist=min_dist)
+            runEmbeddings_UMAP(user=user, 
+                            n_neighbors=n_neighbors, 
+                            min_dist=min_dist)
             RunPredictions_(dimred_type = dimred_type, 
                             dimred_ID=dimred_ID, 
                             user = user)
@@ -453,7 +472,7 @@ for user in user_list:
     dimred_type = "PCA"
     dimred_ID = dimred_type
 
-    # runEmbeddings_PCA(user=user)
+    runEmbeddings_PCA(user=user)
     RunPredictions_(dimred_type = dimred_type, 
                     dimred_ID=dimred_ID, 
                     user = user)

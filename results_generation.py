@@ -13,7 +13,7 @@ import csv
 
 
 
-import regression_gridsearch 
+# import regression_gridsearch 
 
 
 """
@@ -76,14 +76,24 @@ dataset_trainval = [1, 2]
 
 # ------- CEBRA ------- #
 
-model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-min_temp_list = [0, 0.2, 0.4, 0.6, 0.8]
+# model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
+# min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
+# cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
+
+# time_offset_dict = {
+#     "offset5-model" : [1, 2, 4], 
+#     "offset10-model" : [2, 4, 8],
+#     "offset36-model" : [2, 10, 20, 32]
+# }
+
+model_arch_list = ['offset10-model', 'offset36-model']
+min_temp_list = [0.05, 0.5, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
 
 time_offset_dict = {
-    "offset5-model" : [1, 2, 4], 
-    "offset10-model" : [2, 4, 8],
-    "offset36-model" : [2, 10, 20, 32]
+    "offset5-model" : [2, 4], 
+    "offset10-model" : [4, 8],
+    "offset36-model" : [20, 32]
 }
 
 
@@ -145,8 +155,11 @@ reg_results_df.to_csv(f"{df_path}/r2_all_cebra_df.csv", index = False)
 
 
 
-n_neighbours_list = [5, 10, 20, 100, 200]
-min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+# n_neighbours_list = [5, 10, 20, 100, 200]
+# min_dist_list = [0, 0.1, 0.25, 0.5, 0.8]
+
+n_neighbours_list = [5, 200]
+min_dist_list = [0.1, 0.8]
 
 r2_results = []
 
@@ -281,6 +294,7 @@ for cebra_modal in cebra_modal_list:
 
                 df_dataset2 = df[df['dataset'] == 2]
 
+                df_dataset2 = df[df['cebra_modal'] == cebra_modal]
 
                 id_mean = df_dataset2['mvr2'][df_dataset2['dimred_ID'] == dimred_ID].mean()
                 id_var = df_dataset2['mvr2'][df_dataset2['dimred_ID'] == dimred_ID].var()
@@ -316,6 +330,7 @@ for cebra_modal in cebra_modal_list:
     best_cebra_results_temp = []
 
     filtered_results = summary_results[summary_results['cebra_modal'] == cebra_modal]
+
 
     best_hyperparms_ind = filtered_results['mvr2_mean'].idxmax()
 
@@ -375,14 +390,18 @@ umap_best_hyp_df.to_csv(f"{df_path}/r2_umap_hyperp_best.csv", index = False)
 cebra_df = pd.read_csv('./results_df/best_validation/r2_cebra_hyperp_best.csv')
 umap_df = pd.read_csv('./results_df/summary_validation/r2_UMAP_df.csv')
 pca_df = pd.read_csv('./results_df/all/pca_results_all.csv')
+ae_df = pd.read_csv('./results_df/all/autoencoder_results_all.csv')
+no_dimred_df = pd.read_csv('./results_df/all/no_dimred_results_all.csv')
 
 umap_df_filtered = umap_df[umap_df['mvr2_mean'] == umap_df['mvr2_mean'].max()]
 
-cebra_b = cebra_df[cebra_df['cebra_modal'] == 'cebra_b']
+cebra_b = cebra_df[cebra_df['cebra_modal'] == 'cebra_b'] # do not need to separate d1 and d2 because this is the validation df
 cebra_h = cebra_df[cebra_df['cebra_modal'] == 'cebra_h']
 cebra_t = cebra_df[cebra_df['cebra_modal'] == 'cebra_t']
 
-pca_d1 = pca_df[pca_df['dataset'] == 2]
+pca_d2 = pca_df[pca_df['dataset'] == 2]
+ae_d2 = ae_df[ae_df['dataset'] == 2]
+no_dimred_d2 = no_dimred_df[no_dimred_df['dataset'] == 2]
 
 
 all_dimred_results = [
@@ -390,10 +409,11 @@ all_dimred_results = [
     [cebra_h['cebra_modal'].values[0], cebra_h['mvr2_mean'].values[0], cebra_h['mvr2_var'].values[0]],
     [cebra_t['cebra_modal'].values[0], cebra_t['mvr2_mean'].values[0], cebra_t['mvr2_var'].values[0]],
     ["UMAP", umap_df_filtered['mvr2_mean'].values[0], umap_df_filtered['mvr2_var'].values[0]], 
-    ["PCA", pca_d1['mvr2'].mean(), pca_d1['mvr2'].var()]
-]
+    ["PCA", pca_d2['mvr2'].mean(), pca_d2['mvr2'].var()], 
+    ["Autoencoder", ae_d2['mvr2'].mean(), ae_d2['mvr2'].var()], 
+    ["No DimRed", no_dimred_d2['mvr2'].mean(), no_dimred_d2['mvr2'].var()]]
 
-results_path = './results_df/final'
+results_path = './results_df/summary_validation'
 auxf.ensure_directory_exists(results_path)
 
 all_dimred_results_df = pd.DataFrame(all_dimred_results, columns = ['dimred', 'mvr2_mean', 'mvr2_var'])
@@ -402,6 +422,8 @@ all_dimred_results_df.to_csv(f"{results_path}/validation_all_dimred_results.csv"
 
 # ------------- get training and testing results for the best hyperparams found using validation ------------- #
 
+
+# test first
 
 # CEBRA
 
@@ -465,8 +487,6 @@ for cebra_modal in cebra_modal_list:
         r2_list.append(cebra_modal)
 
         test_r2_results.append(r2_list)
-
-
 
 
 
@@ -552,6 +572,47 @@ for user in user_list:
     test_r2_results.append(r2_list)
 
 
+# Autoencoder
+
+dimred_type = "autoencoder"
+dimred_ID = f"{dimred_type}"
+
+dataset = 3
+
+for user in user_list:
+
+    r2_list = calcRsq(
+        user = user, 
+        dimred_type = 'autoencoder', 
+        dimredID = dimred_ID, 
+        dataset = dataset)
+    
+    r2_list.append(user)
+    r2_list.append(dimred_type)
+    
+    test_r2_results.append(r2_list)
+
+
+# No Dim Red
+
+
+dimred_type = "no_dimred"
+dimred_ID = f"{dimred_type}"
+
+dataset = 3
+
+for user in user_list:
+
+    r2_list = calcRsq(
+        user = user, 
+        dimred_type = 'no_dimred', 
+        dimredID = dimred_ID, 
+        dataset = dataset)
+    
+    r2_list.append(user)
+    r2_list.append(dimred_type)
+    
+    test_r2_results.append(r2_list)
 
 
 # save all TEST results
@@ -563,4 +624,3 @@ auxf.ensure_directory_exists(test_results_path)
 test_r2_results_df.to_csv(f"{test_results_path}/test_results.csv", index = False)
 
 
-# I am now going to want a df that has all the results I need aggregated with Train, Val, Test so that I can plot the results
