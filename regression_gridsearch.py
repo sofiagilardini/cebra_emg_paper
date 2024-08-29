@@ -7,7 +7,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.decomposition import PCA
 import umap
 from autoencoders_skorch import AutoEncoder_1, AutoEncoder_2, AutoEncoderNet, VariationalAutoEncoder, VariationalAutoEncoderNet
-
+import pandas as pd
 
 
 params = {"font.family" : "serif"}
@@ -64,9 +64,31 @@ def runCebraTraining(
     elif cebra_modal == 'cebra_t':
         cebra_model.fit(emg)
 
+    
+    cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
+
+        
+    ax = cebra.plot_loss(cebra_model)
+    ax.set_title(f"User: {user}, {model_arch}, min_temp: {min_temp_val}, time_offset: {time_offset_val}")
+
+    fig_path = f'./cebra_models/loss_plots/user{user}/{cebra_modal}'
+    auxf.ensure_directory_exists(fig_path)
+    plt.savefig(f'{fig_path}/{cebra_model_ID}.png')
+
+    del ax
+
+    ax = cebra.plot_temperature(cebra_model)
+    ax.set_title(f"User: {user}, {model_arch}, min_temp: {min_temp_val}, time_offset: {time_offset_val}")
+
+    fig_path = f'./cebra_models/temp_plots/user{user}/{cebra_modal}'
+    auxf.ensure_directory_exists(fig_path)
+    plt.savefig(f'{fig_path}/{cebra_model_ID}.png')
+
+    del ax
+
+
     cebra_model_dir = f'./cebra_models/user{user}/{cebra_modal}'
     auxf.ensure_directory_exists(cebra_model_dir)
-    cebra_model_ID = f"{model_arch}_{min_temp_val}_{time_offset_val}"
     cebra_model.save(f"{cebra_model_dir}/{cebra_model_ID}.pt")
 
 
@@ -126,6 +148,15 @@ def RunPredictions_CEBRA(
 
     # fit MLP
     reg_MLP.fit(emg_embedding_d1, glove_d1)  
+
+    mlp_loss_path = f'./MLP_pred/loss_plots/user{user}/{cebra_modal}/dataset{dataset}'
+    auxf.ensure_directory_exists(mlp_loss_path)
+
+    ax = pd.DataFrame(reg_MLP.loss_curve_).plot()
+    ax.legend_.remove()
+    ax.set_title(f"User: {user}, {dimred_ID}")
+
+    plt.savefig(f'{mlp_loss_path}/{dimred_ID}.png')
     # save MLP
 
     joblib.dump(reg_MLP, MLP_path) 
@@ -189,6 +220,19 @@ def RunPredictions_(dimred_type: str, dimred_ID: str, user: int):
 
     # fit MLP
     reg_MLP.fit(emg_embedding_d1, glove_d1)  
+
+    mlp_loss_path = f'./MLP_pred/loss_plots/user{user}/{dimred_type}/dataset{dataset}'
+    auxf.ensure_directory_exists(mlp_loss_path)
+
+
+
+    ax = pd.DataFrame(reg_MLP.loss_curve_).plot()
+    ax.set_title(f"User: {user}, {dimred_ID}")
+
+    ax.legend_.remove()
+    plt.savefig(f'{mlp_loss_path}/{dimred_ID}.png')
+
+
     # save MLP
 
     joblib.dump(reg_MLP, MLP_path) 
@@ -363,8 +407,8 @@ def RunEmbeddings_AutoEncoder(user: int):
 user_list = np.arange(1,13)
 dataset_list = [1, 2, 3]
 MLP_struct = (100, 100) 
-iters_MLP = 10
-iters_CEBRA = 10
+iters_MLP = 50
+iters_CEBRA = 100
 dataset_trainval = [1, 2]
 dataset_valtest = [2, 3]
 size_val = 128
@@ -381,58 +425,54 @@ ae_epochs = 600 #?
 
 # ------- CEBRA ------- #
 
-# model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
-# min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
-# cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
-
-model_arch_list = ['offset10-model', 'offset36-model']
-min_temp_list = [0.05, 0.5, 0.8]
+model_arch_list = ['offset5-model', 'offset10-model', 'offset36-model']
+min_temp_list = [0.05, 0.2, 0.4, 0.6, 0.8]
 cebra_modal_list = ['cebra_b', 'cebra_h', 'cebra_t']
 
 time_offset_dict = {
     "offset5-model" : [2, 4], 
-    "offset10-model" : [4, 8],
-    "offset36-model" : [20, 32]
+    "offset10-model" : [2, 4, 8],
+    "offset36-model" : [10, 20, 32]
 }
 
 
 total_cebra = len(model_arch_list) * len(min_temp_list) * len(cebra_modal_list) * 3 * len(user_list)
 cebra_counter = 0
 
-# for user in user_list:
-#     for model_arch in model_arch_list:
-#         for cebra_modal in cebra_modal_list:
-#             for min_temp_val in min_temp_list:
+for user in user_list:
+    for model_arch in model_arch_list:
+        for cebra_modal in cebra_modal_list:
+            for min_temp_val in min_temp_list:
 
-#                 offset_list = time_offset_dict[model_arch]
+                offset_list = time_offset_dict[model_arch]
 
-#                 for time_offset_val in offset_list:
+                for time_offset_val in offset_list:
 
-#                     cebra_counter += 1
+                    cebra_counter += 1
 
-#                     dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
+                    dimred_ID = f"{cebra_modal}_{min_temp_val}_{time_offset_val}"
 
-#                     print(f'on CEBRA: {(cebra_counter/total_cebra)*100}%')
+                    print(f'on CEBRA: {(cebra_counter/total_cebra)*100}%')
 
-#                     runCebraTraining(user = user, 
-#                                      model_arch=model_arch, 
-#                                      cebra_modal=cebra_modal, 
-#                                      min_temp_val=min_temp_val, 
-#                                      time_offset_val=time_offset_val)
+                    runCebraTraining(user = user, 
+                                     model_arch=model_arch, 
+                                     cebra_modal=cebra_modal, 
+                                     min_temp_val=min_temp_val, 
+                                     time_offset_val=time_offset_val)
 
-#                     runEmbeddings_CEBRA(user = user, 
-#                                         model_arch = model_arch, 
-#                                         cebra_modal = cebra_modal, 
-#                                         min_temp_val = min_temp_val,
-#                                         time_offset_val=time_offset_val)
+                    runEmbeddings_CEBRA(user = user, 
+                                        model_arch = model_arch, 
+                                        cebra_modal = cebra_modal, 
+                                        min_temp_val = min_temp_val,
+                                        time_offset_val=time_offset_val)
                     
-#                     RunPredictions_CEBRA(user = user,
-#                                          cebra_modal=cebra_modal, 
-#                                          model_arch=model_arch, 
-#                                          min_temp_val=min_temp_val, 
-#                                          time_offset_val=time_offset_val)
+                    RunPredictions_CEBRA(user = user,
+                                         cebra_modal=cebra_modal, 
+                                         model_arch=model_arch, 
+                                         min_temp_val=min_temp_val, 
+                                         time_offset_val=time_offset_val)
 
-# # ------- CEBRA END ------- #
+# ------- CEBRA END ------- #
 
 # ----- UMAP -------- #
 
